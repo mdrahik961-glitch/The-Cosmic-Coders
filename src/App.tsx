@@ -1,0 +1,3472 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { OrbitControls, Stars, useGLTF } from "@react-three/drei";
+import * as THREE from "three";
+import {
+  Activity,
+  AudioLines,
+  BatteryCharging,
+  CalendarDays,
+  CircleUserRound,
+  FileText,
+  History,
+  Image as ImageIcon,
+  Lock,
+  LogIn,
+  LogOut,
+  Mail,
+  MessageCircle,
+  Orbit,
+  Phone,
+  Radio,
+  Rocket,
+  Search,
+  Shield,
+  Thermometer,
+  User,
+  UserPlus,
+  Video,
+  Waves,
+} from "lucide-react";
+import spaceBg from "./assets/space-bg.png";
+
+type Screen =
+  | "welcome"
+  | "roleSelect"
+  | "visitorAuth"
+  | "creatorAuth"
+  | "intro"
+  | "main"
+  | "lobby"
+  | "creators"
+  | "visitorAccount";
+
+type Panel = null | "missions" | "projects" | "observation" | "data" | "sounds";
+type VisitorAuthMode = "signup" | "login";
+type MissionType = "voyager" | "hubble";
+
+type VisitorAccount = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  dob: string;
+  password: string;
+  profileImage: string;
+  createdAt: string;
+};
+
+type VisitorAuthForm = {
+  name: string;
+  email: string;
+  phone: string;
+  dob: string;
+  password: string;
+};
+
+type CreatorForm = {
+  email: string;
+  password: string;
+};
+
+type CreatorAccount = {
+  email: string;
+  image: string;
+};
+
+type CommentItem = {
+  id: string;
+  userEmail: string;
+  userName: string;
+  userImage?: string;
+  text: string;
+  time: string;
+};
+
+type VisitorLogItem = {
+  id: string;
+  visitorEmail: string;
+  visitorName: string;
+  action: string;
+  time: string;
+};
+
+type CreatorProfile = {
+  id: string;
+  name: string;
+  email: string;
+  className: string;
+  school: string;
+  image: string;
+};
+
+type BirthdayMemory = {
+  title: string;
+  explanation: string;
+  url?: string;
+  media_type?: string;
+  date?: string;
+};
+
+type SearchItem = {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  image?: string;
+  source?: string;
+};
+
+type ObservationItem = {
+  id: string;
+  title: string;
+  type: string;
+  distance: string;
+  discoveredBy: string;
+  fact: string;
+  image: string;
+  category: string;
+  sourceName: string;
+  sourceMission: string;
+  sourceLine: string;
+  date?: string;
+};
+
+type Telemetry = {
+  battery: number;
+  signal: number;
+  temp: number;
+  packets: number;
+  velocity: number;
+  mode: string;
+  task: string;
+  lastUpdate: string;
+};
+
+const ADMIN_EMAIL = "md.rahik.961@gmail.com";
+const ADMIN_PASSWORD = "222009rahi";
+const TEAM_LOGO = "/team-logo.jpg";
+const INTRO_VIDEO = "/videos/space-intro.mp4";
+
+const introScenes = [
+  {
+    title: "AI Meets Space Discovery",
+    body: "This experience combines mission monitoring, visitor accounts, creator control, NASA image exploration, and guided space storytelling.",
+  },
+  {
+    title: "Observation and Data",
+    body: "Visitors can explore astronomy images, research cards, observation details, and sound inspired content in one place.",
+  },
+  {
+    title: "Protected Visitor Accounts",
+    body: "Each visitor can sign up with a Gmail address, a Bangladesh phone number, a date of birth, and a saved profile photo.",
+  },
+  {
+    title: "Creators Control the Experience",
+    body: "The creator can review visitor history, manage creator cards, upload creator photos, and control the visitor screen.",
+  },
+];
+
+const missionInfo: Record<
+  MissionType,
+  {
+    label: string;
+    subtitle: string;
+    distance: string;
+    modes: string[];
+    tasks: string[];
+    research: {
+      title: string;
+      image: string;
+      detail: string;
+      captureDate: string;
+      distanceFromEarth: string;
+      sourceMission: string;
+      disabledComponents: { name: string; why: string; purpose: string }[];
+    };
+  }
+> = {
+  voyager: {
+    label: "Voyager 1",
+    subtitle: "Deep Space Probe",
+    distance: "~24+ billion km from Earth",
+    modes: ["Relay", "Cruise", "Scientific Listen", "Low Power"],
+    tasks: ["Interstellar data transmission", "Trajectory monitoring", "Signal relay", "Telemetry broadcast"],
+    research: {
+      title: "Pale Blue Dot",
+      image: "https://science.nasa.gov/wp-content/uploads/2023/09/pia23645-main.jpg",
+      detail:
+        "Voyager 1 captured the famous Pale Blue Dot image where Earth appears as a tiny point of light from deep space.",
+      captureDate: "1990-02-14",
+      distanceFromEarth: "About 6 billion km from Earth at capture time",
+      sourceMission: "Voyager 1 / NASA",
+      disabledComponents: [
+        {
+          name: "Imaging System",
+          why: "Powered down to preserve energy for long-term mission survival.",
+          purpose: "It originally captured planetary and historic images during flybys.",
+        },
+        {
+          name: "Planetary Science Instruments",
+          why: "No longer needed after leaving the planetary region.",
+          purpose: "They studied planets, rings, and moons during close encounters.",
+        },
+      ],
+    },
+  },
+  hubble: {
+    label: "Hubble",
+    subtitle: "Space Observatory",
+    distance: "~Low Earth Orbit",
+    modes: ["Observation", "Tracking", "Downlink", "Calibration"],
+    tasks: ["Deep field observation", "Image capture", "Target lock", "Data downlink"],
+    research: {
+      title: "Pillars of Creation",
+      image: "https://science.nasa.gov/wp-content/uploads/2023/09/heic1501a-jpg.webp",
+      detail:
+        "Hubble created one of the most famous views of star formation in the Eagle Nebula, showing giant towers of gas and dust.",
+      captureDate: "1995-04-01",
+      distanceFromEarth: "Low Earth Orbit telescope observing a nebula about 6,500 light-years away",
+      sourceMission: "Hubble Space Telescope / NASA",
+      disabledComponents: [
+        {
+          name: "Servicing Mission Hardware",
+          why: "Hubble is no longer serviced by astronauts.",
+          purpose: "These systems once supported in-orbit repair and upgrades.",
+        },
+        {
+          name: "Some backup systems",
+          why: "Kept inactive unless needed to preserve long-term operation.",
+          purpose: "Backup systems protect science operations if primary systems fail.",
+        },
+      ],
+    },
+  },
+};
+
+const missionGallery: Record<MissionType, Array<{ title: string; image: string; detail: string; date: string }>> = {
+  voyager: [
+    {
+      title: "Pale Blue Dot",
+      image: "https://science.nasa.gov/wp-content/uploads/2023/09/pia23645-main.jpg",
+      date: "1990-02-14",
+      detail: "Earth as seen from deep space by Voyager 1.",
+    },
+    {
+      title: "Io Volcanic Discovery",
+      image: "https://images-assets.nasa.gov/image/PIA00320/PIA00320~orig.jpg",
+      date: "1979-03-08",
+      detail: "Voyager discovered active volcanism on Io.",
+    },
+    {
+      title: "Neptune Great Dark Spot",
+      image: "https://images-assets.nasa.gov/image/PIA01492/PIA01492~orig.jpg",
+      date: "1989-08-25",
+      detail: "Voyager 2 revealed strong storms on Neptune.",
+    },
+    {
+      title: "Golden Record Legacy",
+      image: "https://images-assets.nasa.gov/image/PIA17048/PIA17048~orig.jpg",
+      date: "1977-09-05",
+      detail: "Voyager carried humanity’s Golden Record into deep space.",
+    },
+  ],
+  hubble: [
+    {
+      title: "Pillars of Creation",
+      image: "https://science.nasa.gov/wp-content/uploads/2023/09/heic1501a-jpg.webp",
+      date: "1995-04-01",
+      detail: "A famous Hubble image of star-forming gas pillars.",
+    },
+    {
+      title: "Hubble Deep Field",
+      image: "https://images-assets.nasa.gov/image/PIA01322/PIA01322~orig.jpg",
+      date: "1995-12-18",
+      detail: "A tiny patch of sky revealing countless distant galaxies.",
+    },
+    {
+      title: "Ultra Deep Field",
+      image: "https://images-assets.nasa.gov/image/PIA11761/PIA11761~orig.jpg",
+      date: "2004-09-24",
+      detail: "One of the deepest visible-light views of the universe.",
+    },
+    {
+      title: "Andromeda Panorama",
+      image:
+        "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001861/GSFC_20171208_Archive_e001861~orig.jpg",
+      date: "2015-01-05",
+      detail: "A huge mosaic of Andromeda captured by Hubble.",
+    },
+  ],
+};
+
+function useLocalStorageState<T>(key: string, initialValue: T) {
+  const [value, setValue] = useState<T>(() => {
+    if (typeof window === "undefined") return initialValue;
+    try {
+      const saved = window.localStorage.getItem(key);
+      return saved ? (JSON.parse(saved) as T) : initialValue;
+    } catch {
+      return initialValue;
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.warn(`Failed to save ${key} to localStorage`, error);
+    }
+  }, [key, value]);
+
+  return [value, setValue] as const;
+}
+
+function useSpeech() {
+  const speak = useCallback((text: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voices = window.speechSynthesis.getVoices();
+    const preferred =
+      voices.find((v) => /zira|samantha|aria|jenny|female/i.test(v.name)) ||
+      voices.find((v) => /en/i.test(v.lang)) ||
+      voices[0];
+    if (preferred) utterance.voice = preferred;
+    utterance.rate = 0.96;
+    utterance.pitch = 1.02;
+    utterance.volume = 1;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  }, []);
+
+  const stop = useCallback(() => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
+
+  return { speak, stop };
+}
+
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth <= breakpoint;
+  });
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= breakpoint);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
+function isValidGmail(email: string) {
+  return /^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(email.trim());
+}
+
+function normalizeBdPhone(input: string) {
+  return input.replace(/\D/g, "").slice(0, 11);
+}
+
+function isValidBdPhone(input: string) {
+  return /^01\d{9}$/.test(input);
+}
+
+function isValidDob(dob: string) {
+  if (!dob) return false;
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return false;
+  const year = d.getFullYear();
+  return String(year).length === 4 && year >= 1900 && year <= new Date().getFullYear();
+}
+
+function safeDateLabel(date?: string) {
+  if (!date) return "Unknown";
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "Unknown";
+  return d.toLocaleDateString();
+}
+
+async function resizeImageFile(file: File, maxSize = 500, quality = 0.7): Promise<string> {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Only image files are allowed");
+  }
+
+  const src = URL.createObjectURL(file);
+
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Image load failed"));
+      img.src = src;
+    });
+
+    const ratio = Math.min(maxSize / image.width, maxSize / image.height, 1);
+    const width = Math.max(1, Math.round(image.width * ratio));
+    const height = Math.max(1, Math.round(image.height * ratio));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas context unavailable");
+
+    ctx.fillStyle = "#0b1020";
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(image, 0, 0, width, height);
+
+    return canvas.toDataURL("image/jpeg", quality);
+  } finally {
+    URL.revokeObjectURL(src);
+  }
+}
+
+function getYouTubeEmbedUrl(url: string) {
+  try {
+    if (!url) return "";
+    if (url.includes("youtube.com/watch?v=")) {
+      const parsed = new URL(url);
+      const id = parsed.searchParams.get("v");
+      return id ? `https://www.youtube.com/embed/${id}` : url;
+    }
+    if (url.includes("youtu.be/")) {
+      const parsed = new URL(url);
+      const id = parsed.pathname.split("/").filter(Boolean)[0];
+      return id ? `https://www.youtube.com/embed/${id}` : url;
+    }
+    if (url.includes("youtube.com/embed/")) return url;
+    return url;
+  } catch {
+    return url;
+  }
+}
+
+function SpaceProbe({ type }: { type: MissionType }) {
+  const groupRef = useRef<THREE.Group>(null);
+
+  const voyager = useGLTF("/models/voyager.glb");
+  const hubble = useGLTF("/models/hubble.glb");
+
+  const scene = useMemo(() => {
+    const base = type === "voyager" ? voyager.scene : hubble.scene;
+    return base.clone(true);
+  }, [type, voyager.scene, hubble.scene]);
+
+  useEffect(() => {
+    scene.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+  }, [scene]);
+
+  useFrame((state, delta) => {
+    if (!groupRef.current) return;
+    groupRef.current.rotation.y += delta * 0.35;
+    groupRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.55) * 0.08;
+  });
+
+return (
+  <group
+    ref={groupRef}
+    scale={type === "voyager" ? 0.3 : 0.55}
+    position={[0, -0.5, 0]}
+  >
+    <primitive object={scene} />
+  </group>
+);
+}
+
+useGLTF.preload("/models/voyager.glb");
+useGLTF.preload("/models/hubble.glb");
+
+function MissionViewer({ type }: { type: MissionType }) {
+  return (
+    <div style={styles.viewerBox}>
+      <Canvas
+        camera={{ position: [0, 0, 6], fov: 45 }}
+        gl={{ antialias: true, alpha: false }}
+        onCreated={({ gl }) => {
+          gl.setClearColor("#000000");
+        }}
+      >
+        <ambientLight intensity={1.8} />
+        <directionalLight position={[8, 8, 8]} intensity={2.4} />
+        <pointLight position={[0, 0, 4]} intensity={1.2} />
+        <Stars radius={80} depth={40} count={2500} factor={4} fade speed={1} />
+        <SpaceProbe type={type} />
+        <OrbitControls enableZoom minDistance={3} maxDistance={10} enablePan={false} />
+      </Canvas>
+      <div style={styles.viewerLabel}>{missionInfo[type].label} · 3D rotating view</div>
+    </div>
+  );
+}
+
+function useTelemetry(type: MissionType) {
+  const [data, setData] = useState<Telemetry>(() => ({
+    battery: type === "voyager" ? 74 : 93,
+    signal: type === "voyager" ? 87 : 96,
+    temp: type === "voyager" ? -62 : 12,
+    packets: type === "voyager" ? 12654 : 8412,
+    velocity: type === "voyager" ? 17.3 : 7.6,
+    mode: missionInfo[type].modes[0],
+    task: missionInfo[type].tasks[0],
+    lastUpdate: new Date().toLocaleTimeString(),
+  }));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setData((prev) => ({
+        battery:
+          type === "voyager"
+            ? Math.max(45, Math.min(80, prev.battery + (Math.random() > 0.65 ? -1 : 0)))
+            : Math.max(70, Math.min(100, prev.battery + (Math.random() > 0.5 ? -1 : 1))),
+        signal: Math.max(60, Math.min(100, prev.signal + Math.floor(Math.random() * 7) - 3)),
+        temp:
+          type === "voyager"
+            ? Math.max(-90, Math.min(-25, prev.temp + (Math.random() > 0.5 ? 1 : -1)))
+            : Math.max(-10, Math.min(30, prev.temp + (Math.random() > 0.5 ? 1 : -1))),
+        packets: prev.packets + Math.floor(Math.random() * 120 + 25),
+        velocity:
+          type === "voyager"
+            ? Number((17 + Math.random() * 0.8).toFixed(2))
+            : Number((7.2 + Math.random() * 0.8).toFixed(2)),
+        mode: missionInfo[type].modes[Math.floor(Math.random() * missionInfo[type].modes.length)],
+        task: missionInfo[type].tasks[Math.floor(Math.random() * missionInfo[type].tasks.length)],
+        lastUpdate: new Date().toLocaleTimeString(),
+      }));
+    }, 1800);
+
+    return () => clearInterval(timer);
+  }, [type]);
+
+  return data;
+}
+
+function Modal({
+  open,
+  title,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  if (!open) return null;
+
+  return (
+    <div style={styles.modalOverlay}>
+      <div style={styles.modalBox}>
+        <div style={styles.modalHeader}>
+          <h2 style={{ margin: 0 }}>{title}</h2>
+          <button style={styles.closeBtn} onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ title, value, icon }: { title: string; value: string; icon?: React.ReactNode }) {
+  return (
+    <div style={styles.statCard}>
+      <div style={styles.statTopRow}>
+        <div style={styles.statIcon}>{icon}</div>
+        <div style={styles.statTitle}>{title}</div>
+      </div>
+      <div style={styles.statValue}>{value}</div>
+    </div>
+  );
+}
+
+function MissionCard({
+  type,
+  isMobile,
+  onOpenResearch,
+}: {
+  type: MissionType;
+  isMobile: boolean;
+  onOpenResearch: (type: MissionType) => void;
+}) {
+  const info = missionInfo[type];
+  const telemetry = useTelemetry(type);
+  const research = info.research;
+
+  return (
+    <div
+      style={{
+        ...styles.missionCard,
+        gridTemplateColumns: isMobile ? "1fr" : "1.02fr 0.98fr",
+      }}
+    >
+      <div style={{ display: "grid", gap: 16 }}>
+        <MissionViewer type={type} />
+
+        <div style={styles.sideInfoCard}>
+          <div style={styles.sectionTitleRow}>
+            <Lock size={18} color="#ffb347" />
+            <h3 style={{ margin: 0 }}>Components Disabled Now</h3>
+          </div>
+
+          <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
+            {research.disabledComponents.map((item, idx) => (
+              <div key={idx} style={styles.disabledCard}>
+                <div style={{ fontWeight: 700 }}>{item.name}</div>
+                <div style={{ marginTop: 6 }}>
+                  <span style={styles.muted}>Why:</span> {item.why}
+                </div>
+                <div>
+                  <span style={styles.muted}>Purpose:</span> {item.purpose}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={styles.sideInfoCard}>
+          <div style={styles.sectionTitleRow}>
+            <ImageIcon size={18} color="#7de8ff" />
+            <h3 style={{ margin: 0 }}>Greatest Research Highlight</h3>
+          </div>
+
+          <div style={styles.researchMediaWrap}>
+            <img src={research.image} alt={research.title} style={styles.researchImage} />
+          </div>
+
+          <h3 style={{ marginBottom: 8 }}>{research.title}</h3>
+          <p style={styles.panelText}>{research.detail}</p>
+
+          <div style={{ marginTop: 12, display: "grid", gap: 6 }}>
+            <div>
+              <span style={styles.muted}>Date:</span> {research.captureDate}
+            </div>
+            <div>
+              <span style={styles.muted}>Distance at observation:</span> {research.distanceFromEarth}
+            </div>
+            <div>
+              <span style={styles.muted}>Mission:</span> {research.sourceMission}
+            </div>
+          </div>
+
+          <div style={styles.goldenButtonWrap}>
+            <button style={styles.goldenResearchBtn} onClick={() => onOpenResearch(type)}>
+              Open Full Research Gallery
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div style={styles.rightPanel}>
+        <div style={styles.headerRow}>
+          <div>
+            <h2 style={styles.cardTitle}>{info.label}</h2>
+            <div style={styles.cardSubtitle}>{info.subtitle}</div>
+          </div>
+          <div style={styles.liveBadge}>Simulation Live</div>
+        </div>
+
+        <div style={styles.infoBox}>
+          <div>
+            <span style={styles.muted}>Distance:</span> {info.distance}
+          </div>
+          <div>
+            <span style={styles.muted}>Mode:</span> {telemetry.mode}
+          </div>
+          <div>
+            <span style={styles.muted}>Current Task:</span> {telemetry.task}
+          </div>
+          <div>
+            <span style={styles.muted}>Uplink:</span> {type === "voyager" ? "Deep Space Network" : "Orbital Relay"}
+          </div>
+          <div>
+            <span style={styles.muted}>Last Update:</span> {telemetry.lastUpdate}
+          </div>
+        </div>
+
+        <div style={styles.statsGrid}>
+          <StatCard title="BATTERY" value={`${telemetry.battery}%`} icon={<BatteryCharging size={16} color="#47e5bc" />} />
+          <StatCard title="SIGNAL" value={`${telemetry.signal}%`} icon={<Radio size={16} color="#61dafb" />} />
+          <StatCard title="TEMPERATURE" value={`${telemetry.temp}°C`} icon={<Thermometer size={16} color="#f5d742" />} />
+          <StatCard title="PACKETS" value={`${telemetry.packets}`} icon={<Activity size={16} color="#e7a7ff" />} />
+          <StatCard title="VELOCITY" value={`${telemetry.velocity} km/s`} icon={<Rocket size={16} color="#c8b6ff" />} />
+          <StatCard
+            title={type === "voyager" ? "ALTITUDE" : "ORBIT"}
+            value={type === "voyager" ? "Deep Space" : "Low Earth Orbit"}
+            icon={<Orbit size={16} color="#8fd3ff" />}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MissionResearchGalleryModal({
+  type,
+  open,
+  onClose,
+}: {
+  type: MissionType;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const items = missionGallery[type];
+
+  return (
+    <Modal
+      open={open}
+      title={`${missionInfo[type].label} Important Research Gallery`}
+      onClose={onClose}
+    >
+      <div style={styles.researchGalleryGrid}>
+        {items.map((item, index) => (
+          <div key={`${type}-${index}`} style={styles.researchGalleryCard}>
+            <img src={item.image} alt={item.title} style={styles.researchGalleryImage} />
+            <div style={{ padding: 16 }}>
+              <div style={styles.heroBadge}>Research {index + 1}</div>
+              <h3 style={{ marginTop: 8, marginBottom: 8 }}>{item.title}</h3>
+              <div style={{ marginBottom: 8 }}>
+                <span style={styles.muted}>Date:</span> {item.date}
+              </div>
+              <p style={styles.panelText}>{item.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
+export default function App() {
+  const isMobile = useIsMobile();
+  const { speak, stop } = useSpeech();
+
+  const [screen, setScreen] = useState<Screen>("welcome");
+  const [panel, setPanel] = useState<Panel>(null);
+  const [introIndex, setIntroIndex] = useState(0);
+  const [introFinished, setIntroFinished] = useState(false);
+
+  const [visitorAuthMode, setVisitorAuthMode] = useState<VisitorAuthMode>("signup");
+  const [visitorAuth, setVisitorAuth] = useState<VisitorAuthForm>({
+    name: "",
+    email: "",
+    phone: "",
+    dob: "",
+    password: "",
+  });
+
+  const [creatorForm, setCreatorForm] = useState<CreatorForm>({
+    email: "",
+    password: "",
+  });
+
+  const [loggedInVisitor, setLoggedInVisitor] = useState<VisitorAccount | null>(null);
+  const [isCreator, setIsCreator] = useState(false);
+
+  const [birthdayMemory, setBirthdayMemory] = useState<BirthdayMemory | null>(null);
+  const [birthdayLoading, setBirthdayLoading] = useState(false);
+
+  const [searchTerm, setSearchTerm] = useState("galaxy");
+  const [searchResults, setSearchResults] = useState<SearchItem[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [researchFeed, setResearchFeed] = useState<SearchItem[]>([]);
+
+  const [observationDeckItems, setObservationDeckItems] = useState<ObservationItem[]>([]);
+  const [observationIndex, setObservationIndex] = useState(0);
+  const [observationZoom, setObservationZoom] = useState(1);
+  const [observationLoading, setObservationLoading] = useState(false);
+  const [observationSearch, setObservationSearch] = useState("space");
+  const [observationCategory, setObservationCategory] = useState("All");
+  const [observationMode, setObservationMode] = useState<"all" | "pictures" | "research">("all");
+  const [autoSlide, setAutoSlide] = useState(false);
+
+  const [commentDraft, setCommentDraft] = useState("");
+  const [profileMessage, setProfileMessage] = useState("");
+  const [missionResearchOpen, setMissionResearchOpen] = useState<MissionType | null>(null);
+
+  const [adminMedia, setAdminMedia] = useLocalStorageState("cosmic-admin-media", {
+    videoUrl: "",
+    pptxName: "",
+    pptxUrl: "",
+  });
+
+  const [comments, setComments] = useLocalStorageState<CommentItem[]>("cosmic-comments", []);
+  const [visitorAccounts, setVisitorAccounts] = useLocalStorageState<VisitorAccount[]>("cosmic-visitor-accounts", []);
+  const [visitorLogs, setVisitorLogs] = useLocalStorageState<VisitorLogItem[]>("cosmic-visitor-logs", []);
+  const [activeVisitorId, setActiveVisitorId] = useLocalStorageState<string | null>("cosmic-active-visitor-id", null);
+
+  const [creatorAccount, setCreatorAccount] = useLocalStorageState<CreatorAccount>("cosmic-creator-account", {
+    email: ADMIN_EMAIL,
+    image: "",
+  });
+
+  const [creatorProfiles, setCreatorProfiles] = useLocalStorageState<CreatorProfile[]>("cosmic-creator-profiles", [
+    {
+      id: "1",
+      name: "Mohammad Rahik",
+      email: "md.rahik.961@gmail.com",
+      className: "TEN (Science)",
+      school: "Atomic Energy Research Establishment school & College",
+      image: "/creators/creator-1.jpg",
+    },
+    {
+      id: "2",
+      name: "Prosun Kanti Das",
+      email: "kishorekanti17@gmail.com",
+      className: "SEVEN",
+      school: "Savar Cantonment Public School and College",
+      image: "/creators/creator-2.jpg",
+    },
+    {
+      id: "3",
+      name: "Mohammad Foysal Faiaz",
+      email: "fahim@example.com",
+      className: "TEN (Science)",
+      school: "Atomic Energy Research Establishment school & College",
+      image: "/creators/creator-3.jpg",
+    },
+  ]);
+
+  const filteredObservationItems = useMemo(() => {
+    let items = observationDeckItems;
+
+    if (observationCategory !== "All") {
+      items = items.filter((item) => item.category === observationCategory);
+    }
+
+    if (observationMode === "pictures") {
+      items = items.filter((item) => !!item.image);
+    }
+
+    if (observationMode === "research") {
+      items = items.filter(
+        (item) => item.fact.length > 80 || item.sourceMission !== "NASA Image Library" || item.category === "Mission"
+      );
+    }
+
+    return items;
+  }, [observationDeckItems, observationCategory, observationMode]);
+
+  const currentObservation =
+    filteredObservationItems.length > 0
+      ? filteredObservationItems[Math.min(observationIndex, filteredObservationItems.length - 1)]
+      : null;
+
+  const speakInfo = useCallback(
+    (text: string) => {
+      speak(text);
+    },
+    [speak]
+  );
+
+  const addVisitorLog = useCallback(
+    (account: VisitorAccount, action: string) => {
+      setVisitorLogs((prev) => [
+        {
+          id: `${Date.now()}-${Math.random()}`,
+          visitorEmail: account.email,
+          visitorName: account.name,
+          action,
+          time: new Date().toLocaleString(),
+        },
+        ...prev,
+      ]);
+    },
+    [setVisitorLogs]
+  );
+
+  useEffect(() => {
+    if (!activeVisitorId) return;
+    const found = visitorAccounts.find((item) => item.id === activeVisitorId);
+    if (found) setLoggedInVisitor(found);
+  }, [activeVisitorId, visitorAccounts]);
+
+  useEffect(() => {
+    if (screen !== "intro") return;
+    setIntroFinished(false);
+    setIntroIndex(0);
+
+    const timer = setInterval(() => {
+      setIntroIndex((prev) => {
+        if (prev >= introScenes.length - 1) {
+          setIntroFinished(true);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 4200);
+
+    return () => clearInterval(timer);
+  }, [screen]);
+
+  useEffect(() => {
+    if (screen !== "intro") return;
+    const current = introScenes[introIndex];
+    speakInfo(`${current.title}. ${current.body}`);
+
+    if (introIndex === introScenes.length - 1) {
+      const endTimer = window.setTimeout(() => setIntroFinished(true), 3900);
+      return () => window.clearTimeout(endTimer);
+    }
+  }, [introIndex, screen, speakInfo]);
+
+  useEffect(() => {
+    const fetchResearchFeed = async () => {
+      try {
+        const res = await fetch("https://images-api.nasa.gov/search?q=astronomy&media_type=image");
+        const data = await res.json();
+
+        const items = (data?.collection?.items || []).slice(0, 9).map((item: any, index: number) => ({
+          id: item?.data?.[0]?.nasa_id || `feed-${index}`,
+          title: item?.data?.[0]?.title || "NASA Item",
+          description: item?.data?.[0]?.description || "Astronomy content available.",
+          date: item?.data?.[0]?.date_created || "",
+          image: item?.links?.[0]?.href,
+          source: "NASA Image Library",
+        }));
+
+        setResearchFeed(items);
+      } catch {
+        setResearchFeed([]);
+      }
+    };
+
+    fetchResearchFeed();
+  }, []);
+
+  useEffect(() => {
+    if (panel !== "data") return;
+
+    const runSearch = async () => {
+      setSearchLoading(true);
+      try {
+        const res = await fetch(`https://images-api.nasa.gov/search?q=${encodeURIComponent(searchTerm)}&media_type=image`);
+        const data = await res.json();
+
+        const items = (data?.collection?.items || []).slice(0, 9).map((item: any, index: number) => ({
+          id: item?.data?.[0]?.nasa_id || `nasa-${index}`,
+          title: item?.data?.[0]?.title || "Untitled",
+          description: item?.data?.[0]?.description || "No description available.",
+          date: item?.data?.[0]?.date_created || "",
+          image: item?.links?.[0]?.href,
+          source: "NASA Image Library",
+        }));
+
+        setSearchResults(items);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    };
+
+    runSearch();
+  }, [panel, searchTerm]);
+
+  useEffect(() => {
+    const loadObservationItems = async () => {
+      setObservationLoading(true);
+      try {
+        const res = await fetch(
+          `https://images-api.nasa.gov/search?q=${encodeURIComponent(observationSearch)}&media_type=image`
+        );
+        const data = await res.json();
+
+        const items: ObservationItem[] = (data?.collection?.items || [])
+          .slice(0, 60)
+          .map((item: any, index: number) => {
+            const rawTitle = item?.data?.[0]?.title || `Observation ${index + 1}`;
+            const rawDescription = item?.data?.[0]?.description || "NASA observation image.";
+            const rawKeywords: string[] = item?.data?.[0]?.keywords || [];
+            const rawDate = item?.data?.[0]?.date_created || "";
+            const image = item?.links?.[0]?.href || "";
+            const lowered = `${rawTitle} ${rawDescription} ${rawKeywords.join(" ")}`.toLowerCase();
+
+            let category = "Deep Space";
+            if (lowered.includes("planet")) category = "Planet";
+            else if (lowered.includes("moon")) category = "Moon";
+            else if (lowered.includes("galaxy")) category = "Galaxy";
+            else if (lowered.includes("nebula")) category = "Nebula";
+            else if (lowered.includes("star")) category = "Star";
+            else if (lowered.includes("comet")) category = "Comet";
+            else if (lowered.includes("asteroid")) category = "Asteroid";
+            else if (lowered.includes("voyager") || lowered.includes("hubble")) category = "Mission";
+
+            let mission = "NASA Image Library";
+            if (lowered.includes("voyager")) mission = "Voyager";
+            else if (lowered.includes("hubble")) mission = "Hubble Space Telescope";
+            else if (lowered.includes("webb") || lowered.includes("jwst")) mission = "James Webb Space Telescope";
+            else if (lowered.includes("cassini")) mission = "Cassini";
+            else if (lowered.includes("juno")) mission = "Juno";
+
+            return {
+              id: item?.data?.[0]?.nasa_id || `obs-${index + 1}`,
+              title: rawTitle,
+              type: category,
+              distance: "See NASA source",
+              discoveredBy: "NASA / mission archive",
+              fact: rawDescription.slice(0, 230),
+              image,
+              category,
+              sourceName: "NASA Image Library",
+              sourceMission: mission,
+              sourceLine: `Source: NASA Image Library | Mission / Telescope: ${mission}`,
+              date: rawDate,
+            };
+                    })
+          .filter((item: ObservationItem) => Boolean(item.image));
+
+        setObservationDeckItems(items);
+        setObservationIndex(0);
+      } catch {
+        setObservationDeckItems([]);
+      } finally {
+        setObservationLoading(false);
+      }
+    };
+
+    loadObservationItems();
+  }, [observationSearch]);
+
+  useEffect(() => {
+    if (!autoSlide || filteredObservationItems.length <= 1) return;
+    const timer = setInterval(() => {
+      setObservationIndex((prev) => (prev + 1 >= filteredObservationItems.length ? 0 : prev + 1));
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [autoSlide, filteredObservationItems.length]);
+
+  useEffect(() => {
+    setObservationIndex(0);
+  }, [observationCategory, observationMode]);
+
+  const loadBirthdayMemory = async (dob: string) => {
+    if (!dob || !isValidDob(dob)) return;
+    setBirthdayLoading(true);
+
+    try {
+      const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY&date=${dob}`);
+      const data = await res.json();
+
+      const memory = {
+        title: data?.title || "NASA Memory",
+        explanation: data?.explanation || "NASA featured an astronomy memory for this date.",
+        url: data?.url,
+        media_type: data?.media_type,
+        date: dob,
+      };
+
+      setBirthdayMemory(memory);
+      speakInfo(`On ${dob}, the space event or astronomy feature of the day is ${memory.title}. ${memory.explanation.slice(0, 220)}`);
+    } catch {
+      setBirthdayMemory({
+        title: "NASA Memory Unavailable",
+        explanation: "I could not load the space event for that date right now.",
+        date: dob,
+      });
+      speakInfo("I could not load the space event for that date right now.");
+    } finally {
+      setBirthdayLoading(false);
+    }
+  };
+
+  const handleVisitorDobChange = async (dob: string) => {
+    setVisitorAuth((prev) => ({ ...prev, dob }));
+    if (dob && isValidDob(dob)) {
+      await loadBirthdayMemory(dob);
+    }
+  };
+
+  const handleVisitorSignup = async () => {
+    const { name, email, phone, dob, password } = visitorAuth;
+
+    if (!name || !email || !phone || !dob || !password) {
+      speakInfo("Please complete all visitor sign up fields.");
+      return;
+    }
+
+    if (!isValidGmail(email)) {
+      speakInfo("Only full Gmail addresses are allowed for sign up.");
+      return;
+    }
+
+    if (!isValidBdPhone(phone)) {
+      speakInfo("Phone number must be exactly 11 digits and start with 01.");
+      return;
+    }
+
+    if (!isValidDob(dob)) {
+      speakInfo("Please enter a valid date of birth with a four digit year.");
+      return;
+    }
+
+    const exists = visitorAccounts.some(
+      (item) => item.email.trim().toLowerCase() === email.trim().toLowerCase()
+    );
+
+    if (exists) {
+      speakInfo("This email already has an account. Please use log in.");
+      return;
+    }
+
+    const account: VisitorAccount = {
+      id: `${Date.now()}`,
+      name,
+      email: email.trim().toLowerCase(),
+      phone,
+      dob,
+      password,
+      profileImage: "",
+      createdAt: new Date().toISOString(),
+    };
+
+    setVisitorAccounts((prev) => [...prev, account]);
+    setLoggedInVisitor(account);
+    setActiveVisitorId(account.id);
+    addVisitorLog(account, "Visitor signed up and entered website");
+
+    if (!birthdayMemory) {
+      await loadBirthdayMemory(dob);
+    }
+    setScreen("intro");
+  };
+
+  const handleVisitorLogin = async () => {
+    const { email, password } = visitorAuth;
+
+    if (!email || !password) {
+      speakInfo("Please enter your email and password.");
+      return;
+    }
+
+    if (!isValidGmail(email)) {
+      speakInfo("Please enter a full Gmail address.");
+      return;
+    }
+
+    const account = visitorAccounts.find(
+      (item) =>
+        item.email.trim().toLowerCase() === email.trim().toLowerCase() &&
+        item.password === password
+    );
+
+    if (!account) {
+      speakInfo("Visitor login failed. Please check your email and password.");
+      return;
+    }
+
+    setLoggedInVisitor(account);
+    setActiveVisitorId(account.id);
+    setVisitorAuth({
+      name: account.name,
+      email: account.email,
+      phone: account.phone,
+      dob: account.dob,
+      password: account.password,
+    });
+    addVisitorLog(account, "Visitor logged in");
+    await loadBirthdayMemory(account.dob);
+    setScreen("main");
+  };
+
+  const handleCreatorLogin = () => {
+    if (creatorForm.email.trim() === ADMIN_EMAIL && creatorForm.password === ADMIN_PASSWORD) {
+      setIsCreator(true);
+      setScreen("lobby");
+      speakInfo("Creator access granted.");
+      return;
+    }
+    speakInfo("Creator login failed.");
+  };
+
+  const handleVisitorProfileSave = () => {
+    if (!loggedInVisitor) return;
+
+    if (!isValidBdPhone(loggedInVisitor.phone)) {
+      speakInfo("Phone number must be exactly 11 digits.");
+      return;
+    }
+
+    if (!isValidDob(loggedInVisitor.dob)) {
+      speakInfo("Date of birth year must be four digits.");
+      return;
+    }
+
+    const updatedAccounts = visitorAccounts.map((item) =>
+      item.id === loggedInVisitor.id ? loggedInVisitor : item
+    );
+
+    setVisitorAccounts(updatedAccounts);
+    setLoggedInVisitor(loggedInVisitor);
+    setActiveVisitorId(loggedInVisitor.id);
+    addVisitorLog(loggedInVisitor, "Visitor updated account profile");
+    setProfileMessage("Profile updated and saved.");
+    speakInfo("Profile updated and saved.");
+  };
+
+  const handleVisitorPhotoUpload = async (file: File | null) => {
+    if (!file || !loggedInVisitor) return;
+    try {
+      const url = await resizeImageFile(file, 500, 0.7);
+      const updatedVisitor = { ...loggedInVisitor, profileImage: url };
+
+      setLoggedInVisitor(updatedVisitor);
+      setVisitorAccounts((prev) => prev.map((item) => (item.id === updatedVisitor.id ? updatedVisitor : item)));
+      setActiveVisitorId(updatedVisitor.id);
+
+      addVisitorLog(updatedVisitor, "Visitor updated profile photo");
+      setProfileMessage("Profile photo saved for future login.");
+      speakInfo("Profile photo saved for future login.");
+    } catch {
+      setProfileMessage("Image upload failed.");
+      speakInfo("Image upload failed.");
+    }
+  };
+
+  const handleCreatorPhotoUpload = async (file: File | null) => {
+    if (!file) return;
+    try {
+      const url = await resizeImageFile(file, 500, 0.7);
+      setCreatorAccount((prev) => ({ ...prev, image: url }));
+      speakInfo("Creator photo updated.");
+    } catch {
+      speakInfo("Creator photo upload failed.");
+    }
+  };
+
+  const addComment = () => {
+    if (!commentDraft.trim() || !loggedInVisitor) return;
+
+    const next: CommentItem = {
+      id: `${Date.now()}`,
+      userEmail: loggedInVisitor.email,
+      userName: loggedInVisitor.name,
+      userImage: loggedInVisitor.profileImage,
+      text: commentDraft.trim(),
+      time: new Date().toLocaleString(),
+    };
+
+    setComments((prev) => [next, ...prev]);
+    setCommentDraft("");
+    addVisitorLog(loggedInVisitor, "Visitor added a comment");
+    speakInfo("Comment added.");
+  };
+
+  const logoutAll = () => {
+    stop();
+    setLoggedInVisitor(null);
+    setActiveVisitorId(null);
+    setIsCreator(false);
+    setScreen("roleSelect");
+  };
+
+  const playSpaceSound = (name: string) => {
+    const map: Record<string, string> = {
+      planet: "/sounds/planet.mp3",
+      solar: "/sounds/solar-wind.mp3",
+      jupiter: "/sounds/jupiter.mp3",
+      saturn: "/sounds/saturn.mp3",
+      event: "/sounds/cosmic-event.mp3",
+    };
+
+    const src = map[name];
+    if (!src) return;
+
+    const audio = new Audio(src);
+    audio.volume = 0.8;
+    audio.play().catch(() => {
+      speakInfo("Add the sound files inside public slash sounds folder to play them.");
+    });
+  };
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.bgImageLayer} />
+      <div style={styles.bgOverlay} />
+      <div style={styles.bgGlow1} />
+      <div style={styles.bgGlow2} />
+
+      {(screen === "main" || screen === "lobby" || screen === "creators" || screen === "visitorAccount") && (
+        <>
+          <button style={styles.teamLogoCorner} onClick={() => setScreen("main")} title="Team logo">
+            <img
+              src={TEAM_LOGO}
+              alt="Team Logo"
+              style={styles.teamLogoImage}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = "https://via.placeholder.com/80x80?text=LOGO";
+              }}
+            />
+          </button>
+
+          <button
+            style={styles.profileCornerBtn}
+            onClick={() => setScreen(isCreator ? "lobby" : "visitorAccount")}
+            title="Profile"
+          >
+            {isCreator && creatorAccount.image ? (
+              <img src={creatorAccount.image} alt="Creator" style={styles.profileMiniImage} />
+            ) : loggedInVisitor?.profileImage ? (
+              <img src={loggedInVisitor.profileImage} alt="Profile" style={styles.profileMiniImage} />
+            ) : (
+              <CircleUserRound size={24} />
+            )}
+          </button>
+        </>
+      )}
+
+      {screen === "welcome" && (
+        <div style={styles.welcomeHero}>
+          <div style={styles.welcomeHeroOverlay} />
+          <div style={styles.welcomeHeroContent}>
+            <div style={styles.welcomeTopBadge}>Astronomy Event Experience</div>
+            <h1 style={styles.welcomeHeroTitle}>Cosmic AI Gateway</h1>
+            <p style={styles.welcomeHeroText}>
+              A cinematic astronomy website concept with visitor accounts, creator control, NASA-style data storytelling,
+              mission simulation, and saved profile photos.
+            </p>
+            <button style={styles.welcomeHeroBtn} onClick={() => setScreen("roleSelect")}>
+              Continue <span style={{ fontSize: 18 }}>→</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {screen === "roleSelect" && (
+        <div style={styles.centerScreen}>
+          <div style={{ ...styles.roleGrid, gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr" }}>
+            <button style={styles.visitorRoleCard} onClick={() => setScreen("visitorAuth")}>
+              <div style={styles.roleBadge}>Silver / Gold Entry</div>
+              <h2 style={styles.roleTitle}>Visitor</h2>
+              <p style={styles.roleText}>Create account or log in as a visitor.</p>
+            </button>
+
+            <button style={styles.creatorRoleCard} onClick={() => setScreen("creatorAuth")}>
+              <div style={styles.roleBadge}>Diamond / Ruby Entry</div>
+              <h2 style={styles.roleTitle}>Creator</h2>
+              <p style={styles.roleText}>Log in as the project creator.</p>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {screen === "visitorAuth" && (
+        <div style={styles.centerScreen}>
+          <div style={styles.authPageWrap}>
+            <div style={styles.authSwitchRow}>
+              <button
+                style={{
+                  ...styles.authModeBtn,
+                  ...(visitorAuthMode === "signup" ? styles.visitorTabActive : styles.authModeBtnInactive),
+                }}
+                onClick={() => setVisitorAuthMode("signup")}
+              >
+                <UserPlus size={18} /> Sign Up
+              </button>
+
+              <button
+                style={{
+                  ...styles.authModeBtn,
+                  ...(visitorAuthMode === "login" ? styles.visitorTabActive : styles.authModeBtnInactive),
+                }}
+                onClick={() => setVisitorAuthMode("login")}
+              >
+                <LogIn size={18} /> Log In
+              </button>
+            </div>
+
+            <div style={styles.authCard}>
+              <div style={styles.heroBadge}>Visitor Account</div>
+              <h2 style={{ ...styles.cardTitle, fontSize: 36, marginBottom: 10 }}>
+                {visitorAuthMode === "signup" ? "Create Visitor Account" : "Visitor Login"}
+              </h2>
+
+              <div style={styles.formGrid}>
+                {visitorAuthMode === "signup" && (
+                  <>
+                    <label style={styles.fieldCard}>
+                      <User size={16} color="#7de8ff" />
+                      <input
+                        style={styles.fieldInput}
+                        value={visitorAuth.name}
+                        onChange={(e) => setVisitorAuth({ ...visitorAuth, name: e.target.value })}
+                        placeholder="Your name"
+                      />
+                    </label>
+
+                    <label style={styles.fieldCard}>
+                      <Phone size={16} color="#7de8ff" />
+                      <span style={styles.phonePrefix}>+88</span>
+                      <input
+                        style={styles.fieldInput}
+                        value={visitorAuth.phone}
+                        onChange={(e) => setVisitorAuth({ ...visitorAuth, phone: normalizeBdPhone(e.target.value) })}
+                        placeholder="019XXXXXXXX"
+                        maxLength={11}
+                        inputMode="numeric"
+                      />
+                    </label>
+
+                    <label style={styles.fieldCard}>
+                      <CalendarDays size={16} color="#7de8ff" />
+                      <input
+                        style={styles.fieldInput}
+                        type="date"
+                        value={visitorAuth.dob}
+                        onChange={(e) => handleVisitorDobChange(e.target.value)}
+                      />
+                    </label>
+                  </>
+                )}
+
+                <label style={styles.fieldCard}>
+                  <Mail size={16} color="#7de8ff" />
+                  <input
+                    style={styles.fieldInput}
+                    value={visitorAuth.email}
+                    onChange={(e) => setVisitorAuth({ ...visitorAuth, email: e.target.value })}
+                    placeholder="yourname@gmail.com"
+                  />
+                </label>
+
+                <label style={styles.fieldCard}>
+                  <Lock size={16} color="#7de8ff" />
+                  <input
+                    style={styles.fieldInput}
+                    type="password"
+                    value={visitorAuth.password}
+                    onChange={(e) => setVisitorAuth({ ...visitorAuth, password: e.target.value })}
+                    placeholder="Password"
+                  />
+                </label>
+              </div>
+
+              <div style={styles.dualActions}>
+                {visitorAuthMode === "signup" ? (
+                  <button style={styles.primaryBtn} onClick={handleVisitorSignup}>
+                    Create Account
+                  </button>
+                ) : (
+                  <button style={styles.primaryBtn} onClick={handleVisitorLogin}>
+                    Log In
+                  </button>
+                )}
+
+                <button style={styles.secondaryBtn} onClick={() => setScreen("roleSelect")}>
+                  Back
+                </button>
+              </div>
+
+              {birthdayLoading && <p style={{ color: "#7de8ff", marginTop: 18 }}>Loading space memory...</p>}
+
+              {birthdayMemory && visitorAuthMode === "signup" && (
+                <div style={styles.birthdayCard}>
+                  <div style={styles.heroBadge}>Interesting Space Event On Your Date</div>
+                  <h3 style={{ marginTop: 12, fontSize: 24 }}>{birthdayMemory.title}</h3>
+                  <p style={styles.panelText}>{birthdayMemory.explanation}</p>
+                  {birthdayMemory.url && birthdayMemory.media_type === "image" && (
+                    <img src={birthdayMemory.url} alt={birthdayMemory.title} style={styles.birthdayImage} />
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {screen === "creatorAuth" && (
+        <div style={styles.centerScreen}>
+          <div style={styles.authPageWrap}>
+            <div style={styles.authCard}>
+              <div style={styles.heroBadge}>Creator Access</div>
+              <h2 style={{ ...styles.cardTitle, fontSize: 36, marginBottom: 10 }}>Creator Login</h2>
+
+              <div style={styles.formGrid}>
+                <label style={styles.fieldCard}>
+                  <Mail size={16} color="#7de8ff" />
+                  <input
+                    style={styles.fieldInput}
+                    value={creatorForm.email}
+                    onChange={(e) => setCreatorForm({ ...creatorForm, email: e.target.value })}
+                    placeholder="Creator email"
+                  />
+                </label>
+
+                <label style={styles.fieldCard}>
+                  <Lock size={16} color="#7de8ff" />
+                  <input
+                    style={styles.fieldInput}
+                    type="password"
+                    value={creatorForm.password}
+                    onChange={(e) => setCreatorForm({ ...creatorForm, password: e.target.value })}
+                    placeholder="Password"
+                  />
+                </label>
+              </div>
+
+              <div style={styles.dualActions}>
+                <button style={styles.primaryBtn} onClick={handleCreatorLogin}>
+                  Enter Creator Lobby
+                </button>
+
+                <button style={styles.secondaryBtn} onClick={() => setScreen("roleSelect")}>
+                  Back
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {screen === "intro" && (
+        <div style={styles.centerScreen}>
+          <div style={styles.introWrap}>
+            <div style={styles.introLeft}>
+              <div style={styles.heroBadge}>Intro Lecture</div>
+              <h2 style={{ ...styles.cardTitle, fontSize: 34, marginTop: 12 }}>{introScenes[introIndex].title}</h2>
+              <p style={{ ...styles.heroText, maxWidth: "100%", marginTop: 12 }}>{introScenes[introIndex].body}</p>
+
+              <div style={styles.progressRow}>
+                {introScenes.map((_, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      ...styles.progressDot,
+                      background: i <= introIndex ? "#7de8ff" : "rgba(255,255,255,0.12)",
+                    }}
+                  />
+                ))}
+              </div>
+
+              <div style={styles.dualActions}>
+                <button
+                  style={{
+                    ...styles.primaryBtn,
+                    opacity: introFinished ? 1 : 0.45,
+                    cursor: introFinished ? "pointer" : "not-allowed",
+                  }}
+                  disabled={!introFinished}
+                  onClick={() => setScreen("main")}
+                >
+                  Enter Main Page
+                </button>
+              </div>
+            </div>
+
+            <div style={styles.videoCard}>
+              <div style={styles.sectionTitleRow}>
+                <Video size={18} color="#7de8ff" />
+                <h3 style={{ margin: 0 }}>Space Intro Video</h3>
+              </div>
+
+              <video controls autoPlay muted loop style={styles.videoFrame}>
+                <source src={INTRO_VIDEO} type="video/mp4" />
+              </video>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {screen === "main" && (
+        <div style={styles.mainWrap}>
+          <div style={{ ...styles.topBar, flexDirection: isMobile ? "column" : "row" }}>
+            <div>
+              <div style={styles.heroBadge}>Interactive Space Presentation</div>
+              <h1 style={{ ...styles.heroTitle, fontSize: "clamp(32px, 5vw, 64px)" }}>Main Cosmic Interface</h1>
+              <p style={{ ...styles.heroText, marginLeft: 0 }}>
+                Guided access to missions, visitor screen, space observation deck, NASA data, sound of universe, and creators.
+              </p>
+            </div>
+
+            <button
+              style={styles.secondaryBtn}
+              onClick={() =>
+                speakInfo("Choose any section and explore the project, missions, data, observation, and space sounds.")
+              }
+            >
+              Guide Me
+            </button>
+          </div>
+
+          <div style={{ ...styles.buttonGrid, gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0, 1fr))" }}>
+            <button style={styles.menuCard} onClick={() => setPanel("missions")}>
+              <div style={styles.menuTitle}>3D Mission Monitor</div>
+              <div style={styles.menuText}>Mission simulation with live telemetry and research highlight panels.</div>
+            </button>
+
+            <button style={styles.menuCard} onClick={() => setPanel("projects")}>
+              <div style={styles.menuTitle}>Know More About Project</div>
+              <div style={styles.menuText}>Visitor screen area with creator video control.</div>
+            </button>
+
+            <button style={styles.menuCard} onClick={() => setPanel("observation")}>
+              <div style={styles.menuTitle}>Space Observation Deck</div>
+              <div style={styles.menuText}>Observe NASA objects with filters, slideshow, zoom, and random mode.</div>
+            </button>
+
+            <button style={styles.menuCard} onClick={() => setPanel("data")}>
+              <div style={styles.menuTitle}>Data Analyzed</div>
+              <div style={styles.menuText}>Search NASA image data and review the research feed.</div>
+            </button>
+
+            <button style={styles.menuCard} onClick={() => setPanel("sounds")}>
+              <div style={styles.menuTitle}>Sound of Universe</div>
+              <div style={styles.menuText}>Play selected space-inspired sounds from the public sounds folder.</div>
+            </button>
+          </div>
+
+          <button style={styles.rainbowCreatorsBtn} onClick={() => setScreen("creators")} title="Creators">
+            Creators
+          </button>
+        </div>
+      )}
+
+      {screen === "visitorAccount" && loggedInVisitor && (
+        <div style={styles.centerScreen}>
+          <div style={styles.accountPageWrap}>
+            <div style={styles.accountTopRow}>
+              <div>
+                <div style={styles.heroBadge}>Visitor Account</div>
+                <h1 style={styles.heroTitle}>My Profile</h1>
+              </div>
+
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <button style={styles.secondaryBtn} onClick={() => setScreen("main")}>
+                  Back
+                </button>
+                <button style={styles.secondaryBtn} onClick={logoutAll}>
+                  <LogOut size={16} /> Log Out
+                </button>
+              </div>
+            </div>
+
+            <div style={{ ...styles.accountGrid, gridTemplateColumns: isMobile ? "1fr" : "0.76fr 1.24fr" }}>
+              <div style={styles.sideInfoCard}>
+                <div style={styles.profileImageBigWrap}>
+                  {loggedInVisitor.profileImage ? (
+                    <img src={loggedInVisitor.profileImage} alt="Profile" style={styles.profileImageBig} />
+                  ) : (
+                    <div style={styles.profileImagePlaceholder}>
+                      <CircleUserRound size={90} />
+                    </div>
+                  )}
+                </div>
+
+                <label style={styles.uploadBtn}>
+                  <ImageIcon size={16} /> Upload Profile Photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(e) => handleVisitorPhotoUpload(e.target.files?.[0] || null)}
+                  />
+                </label>
+
+                <p style={{ ...styles.panelText, marginTop: 14 }}>Account email: {loggedInVisitor.email}</p>
+              </div>
+
+              <div style={styles.sideInfoCard}>
+                <div style={styles.sectionTitleRow}>
+                  <Shield size={18} color="#7de8ff" />
+                  <h3 style={{ margin: 0 }}>Profile Information</h3>
+                </div>
+
+                <input
+                  style={styles.authInput}
+                  value={loggedInVisitor.name}
+                  onChange={(e) => setLoggedInVisitor({ ...loggedInVisitor, name: e.target.value })}
+                  placeholder="Name"
+                />
+
+                <div style={styles.phoneFieldWrap}>
+                  <span style={styles.phonePrefix}>+88</span>
+                  <input
+                    style={{ ...styles.authInput, marginTop: 0 }}
+                    value={loggedInVisitor.phone}
+                    onChange={(e) =>
+                      setLoggedInVisitor({
+                        ...loggedInVisitor,
+                        phone: normalizeBdPhone(e.target.value),
+                      })
+                    }
+                    placeholder="019XXXXXXXX"
+                    maxLength={11}
+                    inputMode="numeric"
+                  />
+                </div>
+
+                <input
+                  style={styles.authInput}
+                  type="date"
+                  value={loggedInVisitor.dob}
+                  onChange={(e) => setLoggedInVisitor({ ...loggedInVisitor, dob: e.target.value })}
+                />
+
+                <button style={styles.primaryBtn} onClick={handleVisitorProfileSave}>
+                  Save Profile
+                </button>
+
+                {profileMessage && <p style={{ ...styles.panelText, marginTop: 12 }}>{profileMessage}</p>}
+
+                <div style={{ marginTop: 20 }}>
+                  <div style={styles.sectionTitleRow}>
+                    <MessageCircle size={18} color="#ff9bd5" />
+                    <h3 style={{ margin: 0 }}>Comment Box</h3>
+                  </div>
+
+                  <textarea
+                    style={styles.commentBox}
+                    value={commentDraft}
+                    onChange={(e) => setCommentDraft(e.target.value)}
+                    placeholder="Write your comment..."
+                  />
+
+                  <div style={{ marginTop: 12 }}>
+                    <button style={styles.primaryBtn} onClick={addComment}>
+                      Add Comment
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 20 }}>
+                  <h3 style={{ marginBottom: 10 }}>My Comments</h3>
+                  <div style={styles.commentList}>
+                    {comments
+                      .filter((item) => item.userEmail === loggedInVisitor.email)
+                      .map((item) => (
+                        <div key={item.id} style={styles.historyCard}>
+                          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                            {item.userImage ? (
+                              <img src={item.userImage} alt="" style={styles.commentMiniImage} />
+                            ) : (
+                              <CircleUserRound size={28} />
+                            )}
+                            <div>
+                              <div style={{ fontWeight: 700 }}>{item.userName}</div>
+                              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{item.time}</div>
+                            </div>
+                          </div>
+                          <div style={{ marginTop: 10 }}>{item.text}</div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {screen === "lobby" && (
+        <div style={styles.centerScreen}>
+          <div style={{ ...styles.lobbyWrap, gridTemplateColumns: isMobile ? "1fr" : "0.38fr 0.62fr" }}>
+            <div style={styles.lobbySidebar}>
+              <div style={styles.lobbyProfileTop}>
+                <label style={{ cursor: "pointer" }}>
+                  <div style={styles.avatarCircle}>
+                    {creatorAccount.image ? (
+                      <img src={creatorAccount.image} alt="Creator" style={styles.creatorLobbyImage} />
+                    ) : (
+                      <CircleUserRound size={56} />
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(e) => handleCreatorPhotoUpload(e.target.files?.[0] || null)}
+                  />
+                </label>
+
+                <div style={{ fontSize: 28, fontWeight: 700 }}>Creator Lobby</div>
+                <div style={{ color: "rgba(255,255,255,0.6)" }}>{ADMIN_EMAIL}</div>
+
+                <label style={styles.uploadBtn}>
+                  <ImageIcon size={16} /> Upload Creator Photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(e) => handleCreatorPhotoUpload(e.target.files?.[0] || null)}
+                  />
+                </label>
+              </div>
+
+              <button style={styles.lobbyItem} onClick={() => setScreen("main")}>
+                <User size={20} /> Main
+              </button>
+              <button style={styles.lobbyItem} onClick={() => setScreen("creators")}>
+                <User size={20} /> Creators
+              </button>
+              <button style={styles.lobbyItem} onClick={logoutAll}>
+                <LogOut size={20} /> Log Out
+              </button>
+            </div>
+
+            <div style={styles.lobbyMain}>
+              <div style={styles.lobbySectionTabs}>
+                <button style={{ ...styles.tabBtn, background: "#7de8ff", color: "#04131a" }}>Creator Control</button>
+              </div>
+
+              <div style={styles.sideInfoCard}>
+                <div style={styles.sectionTitleRow}>
+                  <Video size={18} color="#7de8ff" />
+                  <h3 style={{ margin: 0 }}>Visitor Screen Control</h3>
+                </div>
+
+                <input
+                  style={styles.authInput}
+                  value={adminMedia.videoUrl}
+                  onChange={(e) =>
+                    setAdminMedia((prev) => ({
+                      ...prev,
+                      videoUrl: e.target.value,
+                    }))
+                  }
+                  placeholder="Paste YouTube or MP4 URL"
+                />
+
+                <label style={styles.uploadBtn}>
+                  <FileText size={16} /> Attach PPTX file
+                  <input
+                    type="file"
+                    accept=".ppt,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                    hidden
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+
+                      const fileUrl = URL.createObjectURL(file);
+
+                      setAdminMedia((prev) => ({
+                        ...prev,
+                        pptxName: file.name,
+                        pptxUrl: fileUrl,
+                      }));
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div style={{ ...styles.sideInfoCard, marginTop: 18 }}>
+                <div style={styles.sectionTitleRow}>
+                  <History size={18} color="#ff9bd5" />
+                  <h3 style={{ margin: 0 }}>Visitor Accounts and History</h3>
+                </div>
+
+                <div style={styles.historyList}>
+                  {visitorLogs.length ? (
+                    visitorLogs.map((log) => (
+                      <div key={log.id} style={styles.historyCard}>
+                        <div style={{ fontWeight: 700 }}>{log.visitorName}</div>
+                        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{log.visitorEmail}</div>
+                        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{log.time}</div>
+                        <div style={{ marginTop: 8 }}>{log.action}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={styles.videoPlaceholder}>No visitor history yet.</div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ ...styles.sideInfoCard, marginTop: 18 }}>
+                <div style={styles.sectionTitleRow}>
+                  <MessageCircle size={18} color="#f6c05a" />
+                  <h3 style={{ margin: 0 }}>All Visitor Comments</h3>
+                </div>
+
+                <div style={styles.commentList}>
+                  {comments.length ? (
+                    comments.map((item) => (
+                      <div key={item.id} style={styles.historyCard}>
+                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                          {item.userImage ? (
+                            <img src={item.userImage} alt="" style={styles.commentMiniImage} />
+                          ) : (
+                            <CircleUserRound size={28} />
+                          )}
+                          <div>
+                            <div style={{ fontWeight: 700 }}>{item.userName}</div>
+                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{item.userEmail}</div>
+                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{item.time}</div>
+                          </div>
+                        </div>
+                        <div style={{ marginTop: 10 }}>{item.text}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={styles.videoPlaceholder}>No comments yet.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {screen === "creators" && (
+        <div style={styles.centerScreen}>
+          <div style={styles.creatorsPageWrap}>
+            <div style={styles.creatorsPageTop}>
+              <div>
+                <div style={styles.heroBadge}>Project Team</div>
+                <h1 style={styles.heroTitle}>Creators</h1>
+                <p style={{ ...styles.heroText, marginLeft: 0 }}>Meet the creators behind this project.</p>
+              </div>
+
+              <button style={styles.secondaryBtn} onClick={() => setScreen(isCreator ? "lobby" : "main")}>
+                Back
+              </button>
+            </div>
+
+            <div style={styles.creatorsGrid}>
+              {creatorProfiles.map((creatorItem, index) => (
+                <div key={creatorItem.id} style={styles.creatorProfileCard}>
+                  <div style={styles.creatorImageWrap}>
+                    <img
+                      src={creatorItem.image}
+                      alt={creatorItem.name}
+                      style={styles.creatorImage}
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = "https://via.placeholder.com/400x400?text=Creator";
+                      }}
+                    />
+                  </div>
+
+                  <div style={styles.creatorInfoWrap}>
+                    <div style={styles.creatorCount}>Creator {index + 1}</div>
+                    <h3 style={styles.creatorName}>{creatorItem.name}</h3>
+
+                    <div style={styles.creatorMetaItem}>
+                      <span style={styles.creatorMetaLabel}>Mail:</span> {creatorItem.email}
+                    </div>
+                    <div style={styles.creatorMetaItem}>
+                      <span style={styles.creatorMetaLabel}>Class:</span> {creatorItem.className}
+                    </div>
+                    <div style={styles.creatorMetaItem}>
+                      <span style={styles.creatorMetaLabel}>School:</span> {creatorItem.school}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {isCreator && (
+              <div style={{ ...styles.sideInfoCard, marginTop: 24 }}>
+                <div style={styles.sectionTitleRow}>
+                  <Lock size={18} color="#ff8be1" />
+                  <h3 style={{ margin: 0 }}>Edit Creator Cards</h3>
+                </div>
+
+                <div style={styles.creatorEditorWrap}>
+                  {creatorProfiles.map((creatorItem, index) => (
+                    <div key={creatorItem.id} style={styles.creatorEditorCard}>
+                      <h4 style={{ marginTop: 0, marginBottom: 10 }}>Creator {index + 1}</h4>
+
+                      <input
+                        style={styles.authInput}
+                        value={creatorItem.name}
+                        onChange={(e) => {
+                          const next = [...creatorProfiles];
+                          next[index] = { ...next[index], name: e.target.value };
+                          setCreatorProfiles(next);
+                        }}
+                        placeholder="Name"
+                      />
+
+                      <input
+                        style={styles.authInput}
+                        value={creatorItem.email}
+                        onChange={(e) => {
+                          const next = [...creatorProfiles];
+                          next[index] = { ...next[index], email: e.target.value };
+                          setCreatorProfiles(next);
+                        }}
+                        placeholder="Email"
+                      />
+
+                      <input
+                        style={styles.authInput}
+                        value={creatorItem.className}
+                        onChange={(e) => {
+                          const next = [...creatorProfiles];
+                          next[index] = { ...next[index], className: e.target.value };
+                          setCreatorProfiles(next);
+                        }}
+                        placeholder="Class"
+                      />
+
+                      <input
+                        style={styles.authInput}
+                        value={creatorItem.school}
+                        onChange={(e) => {
+                          const next = [...creatorProfiles];
+                          next[index] = { ...next[index], school: e.target.value };
+                          setCreatorProfiles(next);
+                        }}
+                        placeholder="School"
+                      />
+
+                      <input
+                        style={styles.authInput}
+                        value={creatorItem.image}
+                        onChange={(e) => {
+                          const next = [...creatorProfiles];
+                          next[index] = { ...next[index], image: e.target.value };
+                          setCreatorProfiles(next);
+                        }}
+                        placeholder="Image path or URL"
+                      />
+
+                      <label style={styles.uploadBtn}>
+                        <ImageIcon size={16} /> Upload Creator Picture
+                        <input
+                          type="file"
+                          accept="image/*"
+                          hidden
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              const url = await resizeImageFile(file, 500, 0.7);
+                              const next = [...creatorProfiles];
+                              next[index] = { ...next[index], image: url };
+                              setCreatorProfiles(next);
+                            } catch {
+                              speakInfo("Creator picture upload failed.");
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <Modal open={panel === "missions"} title="3D Mission Monitor" onClose={() => setPanel(null)}>
+        <div style={{ display: "grid", gap: 18 }}>
+          <MissionCard type="voyager" isMobile={isMobile} onOpenResearch={(type) => setMissionResearchOpen(type)} />
+          <MissionCard type="hubble" isMobile={isMobile} onOpenResearch={(type) => setMissionResearchOpen(type)} />
+        </div>
+      </Modal>
+
+      <Modal open={panel === "projects"} title="Know More About Project" onClose={() => setPanel(null)}>
+        <div style={styles.projectVisitorScreen}>
+          {adminMedia.videoUrl ? (
+            adminMedia.videoUrl.includes("youtube.com") || adminMedia.videoUrl.includes("youtu.be") ? (
+              <iframe
+                title="Visitor Screen Video"
+                src={getYouTubeEmbedUrl(adminMedia.videoUrl)}
+                style={styles.visitorScreenVideo}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <video controls autoPlay loop style={styles.visitorScreenVideo}>
+                <source src={adminMedia.videoUrl} />
+              </video>
+            )
+          ) : (
+            <div style={styles.videoPlaceholder}>No visitor video added yet.</div>
+          )}
+        </div>
+      </Modal>
+
+      <Modal open={panel === "observation"} title="Space Observation Deck" onClose={() => setPanel(null)}>
+        <div style={{ ...styles.observationWrap, gridTemplateColumns: isMobile ? "1fr" : "1.08fr 0.92fr" }}>
+          <div style={styles.sideInfoCard}>
+            <div style={styles.sectionTitleRow}>
+              <ImageIcon size={18} color="#7de8ff" />
+              <h3 style={{ margin: 0 }}>Observation Screen</h3>
+            </div>
+
+            <div
+              style={{
+                ...styles.observationToolbarAdvanced,
+                gridTemplateColumns: isMobile ? "1fr" : "1.2fr 0.9fr 1fr",
+              }}
+            >
+              <input
+                style={styles.searchInput}
+                value={observationSearch}
+                onChange={(e) => setObservationSearch(e.target.value)}
+                placeholder="Search NASA observations..."
+              />
+
+              <select
+                style={styles.selectInput}
+                value={observationMode}
+                onChange={(e) => setObservationMode(e.target.value as "all" | "pictures" | "research")}
+              >
+                <option value="all" style={{ color: "#000" }}>
+                  All Results
+                </option>
+                <option value="pictures" style={{ color: "#000" }}>
+                  Pictures Only
+                </option>
+                <option value="research" style={{ color: "#000" }}>
+                  Research Type
+                </option>
+              </select>
+
+              <select
+                style={styles.selectInput}
+                value={observationCategory}
+                onChange={(e) => setObservationCategory(e.target.value)}
+              >
+                <option value="All" style={{ color: "#000" }}>
+                  All Categories
+                </option>
+                <option value="Planet" style={{ color: "#000" }}>
+                  Planets
+                </option>
+                <option value="Moon" style={{ color: "#000" }}>
+                  Moons
+                </option>
+                <option value="Galaxy" style={{ color: "#000" }}>
+                  Galaxies
+                </option>
+                <option value="Nebula" style={{ color: "#000" }}>
+                  Nebulae
+                </option>
+                <option value="Star" style={{ color: "#000" }}>
+                  Stars
+                </option>
+                <option value="Comet" style={{ color: "#000" }}>
+                  Comets
+                </option>
+                <option value="Asteroid" style={{ color: "#000" }}>
+                  Asteroids
+                </option>
+                <option value="Mission" style={{ color: "#000" }}>
+                  Missions
+                </option>
+                <option value="Deep Space" style={{ color: "#000" }}>
+                  Deep Space
+                </option>
+              </select>
+            </div>
+
+            {observationLoading ? (
+              <div style={styles.videoPlaceholder}>Loading NASA observations...</div>
+            ) : currentObservation ? (
+              <>
+                <div style={styles.observationImageWrap}>
+                  <img
+                    src={currentObservation.image}
+                    alt={currentObservation.title}
+                    style={{
+                      ...styles.observationImage,
+                      transform: `scale(${observationZoom})`,
+                    }}
+                  />
+                </div>
+
+                <div style={styles.dualMiniActions}>
+                  <button
+                    style={styles.smallBtn}
+                    onClick={() =>
+                      setObservationIndex((prev) => (prev === 0 ? filteredObservationItems.length - 1 : prev - 1))
+                    }
+                  >
+                    Prev
+                  </button>
+
+                  <button
+                    style={styles.smallBtn}
+                    onClick={() =>
+                      setObservationIndex((prev) => (prev + 1 >= filteredObservationItems.length ? 0 : prev + 1))
+                    }
+                  >
+                    Next
+                  </button>
+
+                  <button style={styles.smallBtn} onClick={() => setObservationZoom((prev) => Math.min(prev + 0.2, 2.4))}>
+                    Zoom In
+                  </button>
+
+                  <button style={styles.smallBtn} onClick={() => setObservationZoom((prev) => Math.max(prev - 0.2, 1))}>
+                    Zoom Out
+                  </button>
+
+                  <button style={styles.smallBtn} onClick={() => setAutoSlide((prev) => !prev)}>
+                    {autoSlide ? "Stop Slide" : "Auto Slide"}
+                  </button>
+
+                  <button
+                    style={styles.smallBtn}
+                    onClick={() => setObservationIndex(Math.floor(Math.random() * filteredObservationItems.length))}
+                  >
+                    Random
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div style={styles.videoPlaceholder}>No observation found.</div>
+            )}
+          </div>
+
+          <div style={styles.sideInfoCard}>
+            <div style={styles.sectionTitleRow}>
+              <Waves size={18} color="#f6c05a" />
+              <h3 style={{ margin: 0 }}>Object Details</h3>
+            </div>
+
+            {currentObservation ? (
+              <>
+                <h2 style={{ marginTop: 16, marginBottom: 10 }}>{currentObservation.title}</h2>
+
+                <p style={{ color: "rgba(255,255,255,0.65)", marginTop: 0 }}>
+                  Mode:{" "}
+                  {observationMode === "all"
+                    ? "All Results"
+                    : observationMode === "pictures"
+                      ? "Pictures Only"
+                      : "Research Type"}
+                </p>
+
+                <div style={styles.infoBox}>
+                  <div>
+                    <span style={styles.muted}>Type:</span> {currentObservation.type}
+                  </div>
+                  <div>
+                    <span style={styles.muted}>Distance:</span> {currentObservation.distance}
+                  </div>
+                  <div>
+                    <span style={styles.muted}>Discovered By:</span> {currentObservation.discoveredBy}
+                  </div>
+                  <div style={{ marginTop: 10 }}>
+                    <span style={styles.muted}>Fact:</span> {currentObservation.fact}
+                  </div>
+                  <div style={{ marginTop: 10 }}>
+                    <span style={styles.muted}>Source:</span> {currentObservation.sourceName}
+                  </div>
+                  <div>
+                    <span style={styles.muted}>Mission / Telescope:</span> {currentObservation.sourceMission}
+                  </div>
+                  <div>
+                    <span style={styles.muted}>Source Line:</span> {currentObservation.sourceLine}
+                  </div>
+                  <div>
+                    <span style={styles.muted}>Date:</span> {safeDateLabel(currentObservation.date)}
+                  </div>
+                  <div>
+                    <span style={styles.muted}>Category:</span> {currentObservation.category}
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <button
+                    style={styles.primaryBtn}
+                    onClick={() =>
+                      speakInfo(`${currentObservation.title}. Type: ${currentObservation.type}. ${currentObservation.fact}`)
+                    }
+                  >
+                    Let Alisa Explain
+                  </button>
+
+                  <a
+                    href={`https://images.nasa.gov/search?q=${encodeURIComponent(currentObservation.title)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={styles.linkBtn}
+                  >
+                    Open NASA Source
+                  </a>
+                </div>
+              </>
+            ) : (
+              <div style={styles.videoPlaceholder}>No details available.</div>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={panel === "data"} title="Data Analyzed" onClose={() => setPanel(null)}>
+        <div style={styles.dataWrap}>
+          <div style={styles.searchBarWrap}>
+            <Search size={18} color="#7de8ff" />
+            <input
+              style={styles.searchInput}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search NASA image content..."
+            />
+          </div>
+
+          {searchLoading ? (
+            <div style={{ color: "rgba(255,255,255,0.7)", padding: "18px 0" }}>Loading NASA data...</div>
+          ) : (
+            <div style={{ ...styles.searchGrid, gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))" }}>
+              {searchResults.map((item) => (
+                <div key={item.id} style={styles.searchCard}>
+                  {item.image ? (
+                    <img src={item.image} alt={item.title} style={styles.searchImage} />
+                  ) : (
+                    <div style={styles.searchPlaceholder}>No Preview</div>
+                  )}
+
+                  <div style={{ padding: 14 }}>
+                    <h4 style={{ margin: 0, fontSize: 18 }}>{item.title}</h4>
+                    <p style={{ ...styles.panelText, marginTop: 10 }}>{item.description}</p>
+                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{safeDateLabel(item.date)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ ...styles.sideInfoCard, marginTop: 10 }}>
+            <h3 style={{ marginTop: 0 }}>Research Feed</h3>
+
+            <div style={{ ...styles.searchGrid, gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))" }}>
+              {researchFeed.map((item) => (
+                <div key={item.id} style={styles.searchCard}>
+                  {item.image ? (
+                    <img src={item.image} alt={item.title} style={styles.searchImage} />
+                  ) : (
+                    <div style={styles.searchPlaceholder}>No Preview</div>
+                  )}
+
+                  <div style={{ padding: 14 }}>
+                    <h4 style={{ margin: 0, fontSize: 18 }}>{item.title}</h4>
+                    <p style={{ ...styles.panelText, marginTop: 10 }}>{item.description}</p>
+                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{item.source}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={panel === "sounds"} title="Sound of Universe" onClose={() => setPanel(null)}>
+        <div style={styles.soundWrap}>
+          <div style={styles.sideInfoCard}>
+            <div style={styles.sectionTitleRow}>
+              <AudioLines size={18} color="#7de8ff" />
+              <h3 style={{ margin: 0 }}>Play Space Sounds</h3>
+            </div>
+
+            <p style={{ ...styles.panelText, marginTop: 12 }}>
+              Add your sound files inside <code>public/sounds/</code> with these names: planet.mp3, solar-wind.mp3,
+              jupiter.mp3, saturn.mp3, cosmic-event.mp3
+            </p>
+
+            <div style={styles.soundButtonGrid}>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("planet")}>
+                Planet Sound
+              </button>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("solar")}>
+                Solar Wind
+              </button>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("jupiter")}>
+                Jupiter
+              </button>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("saturn")}>
+                Saturn
+              </button>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("event")}>
+                Space Event
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      <MissionResearchGalleryModal
+        type="voyager"
+        open={missionResearchOpen === "voyager"}
+        onClose={() => setMissionResearchOpen(null)}
+      />
+
+      <MissionResearchGalleryModal
+        type="hubble"
+        open={missionResearchOpen === "hubble"}
+        onClose={() => setMissionResearchOpen(null)}
+      />
+    </div>
+  );
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  page: {
+    minHeight: "100vh",
+    position: "relative",
+    overflowX: "hidden",
+    color: "#fff",
+    fontFamily:
+      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    background: "#020617",
+  },
+  bgImageLayer: {
+    position: "fixed",
+    inset: 0,
+    backgroundImage: `url(${spaceBg})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    zIndex: 0,
+  },
+  bgOverlay: {
+    position: "fixed",
+    inset: 0,
+    background:
+      "linear-gradient(to bottom, rgba(2,6,23,0.18), rgba(2,6,23,0.34), rgba(0,0,0,0.55))",
+    zIndex: 1,
+  },
+  bgGlow1: {
+    position: "fixed",
+    inset: "auto auto 10% -10%",
+    width: 320,
+    height: 320,
+    borderRadius: "50%",
+    background: "rgba(0,180,255,0.12)",
+    filter: "blur(70px)",
+    pointerEvents: "none",
+    zIndex: 2,
+  },
+  bgGlow2: {
+    position: "fixed",
+    inset: "5% -8% auto auto",
+    width: 260,
+    height: 260,
+    borderRadius: "50%",
+    background: "rgba(168,85,247,0.14)",
+    filter: "blur(70px)",
+    pointerEvents: "none",
+    zIndex: 2,
+  },
+  centerScreen: {
+    position: "relative",
+    zIndex: 3,
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  welcomeHero: {
+    position: "relative",
+    zIndex: 3,
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "24px",
+    textAlign: "center",
+  },
+  welcomeHeroOverlay: {
+    position: "absolute",
+    inset: 0,
+    background:
+      "radial-gradient(circle at center, rgba(255,170,60,0.18) 0%, rgba(0,0,0,0.08) 35%, rgba(0,0,0,0.48) 100%)",
+    pointerEvents: "none",
+  },
+  welcomeHeroContent: {
+    position: "relative",
+    zIndex: 2,
+    width: "min(900px, 92%)",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  welcomeTopBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "8px 16px",
+    borderRadius: 999,
+    background: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.14)",
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: 600,
+    letterSpacing: "0.04em",
+    marginBottom: 18,
+    backdropFilter: "blur(8px)",
+  },
+  welcomeHeroTitle: {
+    margin: 0,
+    fontSize: "clamp(42px, 7vw, 84px)",
+    fontWeight: 800,
+    lineHeight: 1.02,
+    color: "#ffffff",
+    textShadow: "0 8px 30px rgba(0,0,0,0.35)",
+  },
+  welcomeHeroText: {
+    marginTop: 20,
+    maxWidth: 720,
+    color: "rgba(255,255,255,0.88)",
+    fontSize: "clamp(14px, 2vw, 18px)",
+    lineHeight: 1.9,
+    textAlign: "center",
+    textShadow: "0 4px 18px rgba(0,0,0,0.28)",
+  },
+  welcomeHeroBtn: {
+    marginTop: 30,
+    border: "none",
+    outline: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 10,
+    background: "#42dfff",
+    color: "#03131a",
+    padding: "14px 28px",
+    borderRadius: 999,
+    fontWeight: 800,
+    fontSize: 16,
+    cursor: "pointer",
+    boxShadow: "0 12px 30px rgba(66,223,255,0.28)",
+  },
+  roleGrid: {
+    width: "min(1100px, 96%)",
+    display: "grid",
+    gap: 22,
+  },
+  visitorRoleCard: {
+    border: "1px solid rgba(255,255,255,0.18)",
+    background:
+      "linear-gradient(135deg, rgba(255,215,120,0.28), rgba(237,237,237,0.24), rgba(255,184,77,0.22), rgba(255,255,255,0.1))",
+    borderRadius: 30,
+    padding: "42px 30px",
+    color: "#fff",
+    textAlign: "left",
+    cursor: "pointer",
+    backdropFilter: "blur(12px)",
+    boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
+  },
+  creatorRoleCard: {
+    border: "1px solid rgba(255,255,255,0.18)",
+    background:
+      "linear-gradient(135deg, rgba(180,245,255,0.16), rgba(145,95,255,0.24), rgba(200,30,90,0.24), rgba(255,255,255,0.08))",
+    borderRadius: 30,
+    padding: "42px 30px",
+    color: "#fff",
+    textAlign: "left",
+    cursor: "pointer",
+    backdropFilter: "blur(12px)",
+    boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
+  },
+  roleBadge: {
+    display: "inline-block",
+    padding: "8px 14px",
+    borderRadius: 999,
+    background: "rgba(255,255,255,0.12)",
+    border: "1px solid rgba(255,255,255,0.16)",
+    fontSize: 13,
+    marginBottom: 14,
+    color: "#fff",
+    backdropFilter: "blur(8px)",
+  },
+  roleTitle: {
+    margin: 0,
+    fontSize: 40,
+    lineHeight: 1.08,
+  },
+  roleText: {
+    marginTop: 14,
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 18,
+    lineHeight: 1.7,
+  },
+  authPageWrap: {
+    width: "min(860px, 96%)",
+    position: "relative",
+    zIndex: 3,
+  },
+  authSwitchRow: {
+    display: "flex",
+    gap: 12,
+    marginBottom: 16,
+    flexWrap: "wrap",
+  },
+  authModeBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: 999,
+    padding: "12px 18px",
+    cursor: "pointer",
+    fontWeight: 700,
+  },
+  visitorTabActive: {
+    background: "linear-gradient(90deg, #e9eef2, #f7d778, #f1b451)",
+    color: "#151923",
+    border: "1px solid rgba(255,255,255,0.18)",
+  },
+  creatorTabActive: {
+    background: "linear-gradient(90deg, #b7f6ff, #8e6bff, #d6407d)",
+    color: "#fff",
+    border: "1px solid rgba(255,255,255,0.18)",
+  },
+  authModeBtnInactive: {
+    background: "rgba(255,255,255,0.06)",
+    color: "#fff",
+  },
+  authCard: {
+    width: "100%",
+    borderRadius: 30,
+    padding: "42px 30px",
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    backdropFilter: "blur(12px)",
+    textAlign: "left",
+  },
+  introWrap: {
+    width: "min(1200px, 96%)",
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 18,
+    alignItems: "stretch",
+  },
+  introLeft: {
+    borderRadius: 28,
+    padding: 28,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    backdropFilter: "blur(12px)",
+  },
+  formGrid: {
+    display: "grid",
+    gap: 14,
+    marginTop: 18,
+  },
+  fieldCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 18,
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(255,255,255,0.05)",
+    padding: "14px 16px",
+  },
+  fieldInput: {
+    width: "100%",
+    background: "transparent",
+    border: "none",
+    outline: "none",
+    color: "#fff",
+    fontSize: 14,
+  },
+  authInput: {
+    width: "100%",
+    padding: "14px 16px",
+    marginTop: 12,
+    borderRadius: 16,
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(255,255,255,0.05)",
+    color: "#fff",
+    outline: "none",
+    fontSize: 14,
+    boxSizing: "border-box",
+  },
+  birthdayCard: {
+    marginTop: 24,
+    borderRadius: 28,
+    padding: 20,
+    background: "rgba(34,211,238,0.08)",
+    border: "1px solid rgba(34,211,238,0.18)",
+  },
+  birthdayImage: {
+    marginTop: 16,
+    width: "100%",
+    height: 260,
+    objectFit: "cover",
+    borderRadius: 20,
+  },
+  dualActions: {
+    marginTop: 24,
+    display: "flex",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  dualMiniActions: {
+    marginTop: 12,
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  heroBadge: {
+    display: "inline-block",
+    padding: "8px 14px",
+    borderRadius: 999,
+    background: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    fontSize: 13,
+    color: "#9fe7ff",
+    marginBottom: 16,
+  },
+  heroTitle: {
+    fontSize: "clamp(30px, 5vw, 56px)",
+    lineHeight: 1.05,
+    margin: "0 0 12px",
+    fontWeight: 700,
+  },
+  heroText: {
+    maxWidth: 760,
+    margin: "0 auto",
+    color: "rgba(255,255,255,0.72)",
+    lineHeight: 1.7,
+    fontSize: 16,
+  },
+  primaryBtn: {
+    border: "none",
+    background: "#7de8ff",
+    color: "#00131b",
+    padding: "14px 24px",
+    borderRadius: 999,
+    fontWeight: 700,
+    fontSize: 15,
+    cursor: "pointer",
+  },
+  secondaryBtn: {
+    border: "1px solid rgba(255,255,255,0.18)",
+    background: "rgba(255,255,255,0.08)",
+    color: "#fff",
+    padding: "14px 20px",
+    borderRadius: 999,
+    fontWeight: 600,
+    fontSize: 14,
+    cursor: "pointer",
+    height: "fit-content",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  smallBtn: {
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: "rgba(255,255,255,0.06)",
+    color: "#fff",
+    padding: "10px 14px",
+    borderRadius: 999,
+    fontWeight: 600,
+    fontSize: 13,
+    cursor: "pointer",
+  },
+  progressRow: {
+    display: "flex",
+    gap: 8,
+    marginTop: 18,
+  },
+  progressDot: {
+    flex: 1,
+    height: 8,
+    borderRadius: 999,
+  },
+  mainWrap: {
+    position: "relative",
+    zIndex: 3,
+    minHeight: "100vh",
+    padding: "110px 4% 100px",
+  },
+  topBar: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 20,
+    marginBottom: 36,
+    alignItems: "flex-start",
+  },
+  buttonGrid: {
+    display: "grid",
+    gap: 18,
+    maxWidth: 1100,
+    margin: "60px auto 0",
+  },
+  menuCard: {
+    borderRadius: 28,
+    padding: 24,
+    textAlign: "left",
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(2,6,23,0.58)",
+    color: "#fff",
+    cursor: "pointer",
+    minHeight: 150,
+    backdropFilter: "blur(10px)",
+  },
+  menuTitle: {
+    fontSize: 22,
+    fontWeight: 700,
+    marginBottom: 10,
+  },
+  menuText: {
+    color: "rgba(255,255,255,0.72)",
+    lineHeight: 1.7,
+    fontSize: 15,
+  },
+  rainbowCreatorsBtn: {
+    position: "fixed",
+    left: "50%",
+    transform: "translateX(-50%)",
+    bottom: 18,
+    zIndex: 55,
+    border: "none",
+    borderRadius: 999,
+    padding: "14px 24px",
+    fontWeight: 800,
+    fontSize: 15,
+    cursor: "pointer",
+    background: "linear-gradient(90deg, #ff4fd8, #7de8ff, #ffe66d, #8b5cf6, #58ffb2, #ff4fd8)",
+    color: "#04131a",
+    boxShadow: "0 10px 26px rgba(0,0,0,0.26)",
+  },
+  teamLogoCorner: {
+    position: "fixed",
+    left: 24,
+    top: 24,
+    zIndex: 60,
+    width: 64,
+    height: 64,
+    borderRadius: 999,
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: "rgba(0,0,0,0.26)",
+    padding: 6,
+    cursor: "pointer",
+    backdropFilter: "blur(10px)",
+  },
+  teamLogoImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    borderRadius: "50%",
+    display: "block",
+  },
+  profileCornerBtn: {
+    position: "fixed",
+    right: 24,
+    top: 24,
+    zIndex: 60,
+    width: 64,
+    height: 64,
+    borderRadius: 999,
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: "rgba(0,0,0,0.26)",
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    backdropFilter: "blur(10px)",
+    overflow: "hidden",
+  },
+  profileMiniImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+  },
+  accountPageWrap: {
+    width: "min(1260px, 96%)",
+  },
+  accountTopRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 20,
+    alignItems: "flex-end",
+    marginBottom: 24,
+    flexWrap: "wrap",
+  },
+  accountGrid: {
+    display: "grid",
+    gap: 20,
+  },
+  profileImageBigWrap: {
+    width: "100%",
+    height: 320,
+    borderRadius: 24,
+    overflow: "hidden",
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileImageBig: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  profileImagePlaceholder: {
+    color: "rgba(255,255,255,0.5)",
+  },
+  lobbyWrap: {
+    width: "min(1240px, 96%)",
+    display: "grid",
+    gap: 20,
+  },
+  lobbySidebar: {
+    borderRadius: 28,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    overflow: "hidden",
+  },
+  lobbyProfileTop: {
+    padding: 28,
+    display: "flex",
+    alignItems: "center",
+    flexDirection: "column",
+    gap: 10,
+  },
+  avatarCircle: {
+    width: 92,
+    height: 92,
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "rgba(255,255,255,0.08)",
+    overflow: "hidden",
+  },
+  creatorLobbyImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    borderRadius: "50%",
+  },
+  lobbyItem: {
+    width: "100%",
+    padding: "18px 24px",
+    display: "flex",
+    gap: 12,
+    alignItems: "center",
+    background: "transparent",
+    color: "#fff",
+    border: "none",
+    borderTop: "1px solid rgba(255,255,255,0.08)",
+    cursor: "pointer",
+    fontSize: 18,
+    textAlign: "left",
+  },
+  lobbyMain: {
+    borderRadius: 28,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    padding: 24,
+  },
+  lobbySectionTabs: {
+    display: "flex",
+    gap: 12,
+    marginBottom: 18,
+    flexWrap: "wrap",
+  },
+  tabBtn: {
+    border: "none",
+    borderRadius: 999,
+    padding: "12px 18px",
+    fontWeight: 700,
+  },
+  commentBox: {
+    width: "100%",
+    minHeight: 130,
+    marginTop: 12,
+    borderRadius: 18,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    color: "#fff",
+    padding: 16,
+    boxSizing: "border-box",
+    outline: "none",
+    resize: "vertical",
+  },
+  commentList: {
+    marginTop: 20,
+    display: "grid",
+    gap: 12,
+    maxHeight: 420,
+    overflowY: "auto",
+  },
+  commentMiniImage: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    objectFit: "cover",
+  },
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.08)",
+    backdropFilter: "blur(1px)",
+    zIndex: 80,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 18,
+  },
+  modalBox: {
+    width: "min(1320px, 96vw)",
+    maxHeight: "90vh",
+    overflowY: "auto",
+    borderRadius: 28,
+    background: "rgba(10, 16, 38, 0.78)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    padding: 20,
+    boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+  },
+  modalHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    border: "1px solid rgba(255,255,255,0.15)",
+    background: "rgba(255,255,255,0.06)",
+    color: "#fff",
+    cursor: "pointer",
+    fontSize: 18,
+  },
+  missionCard: {
+    display: "grid",
+    gap: 18,
+    padding: 16,
+    borderRadius: 28,
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(255,255,255,0.04)",
+    backdropFilter: "blur(10px)",
+  },
+  viewerBox: {
+    position: "relative",
+    height: 420,
+    borderRadius: 30,
+    overflow: "hidden",
+    background: "#000",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+  viewerLabel: {
+    position: "absolute",
+    left: 18,
+    bottom: 18,
+    padding: "10px 14px",
+    borderRadius: 18,
+    background: "rgba(0,0,0,0.55)",
+    backdropFilter: "blur(8px)",
+    fontSize: 15,
+    color: "#fff",
+  },
+  rightPanel: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 14,
+    padding: 8,
+  },
+  headerRow: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  cardTitle: {
+    margin: 0,
+    fontSize: 28,
+    lineHeight: 1.1,
+  },
+  cardSubtitle: {
+    marginTop: 6,
+    color: "rgba(255,255,255,0.62)",
+    fontSize: 15,
+  },
+  liveBadge: {
+    padding: "10px 16px",
+    borderRadius: 999,
+    border: "1px solid rgba(0,220,255,0.22)",
+    background: "rgba(0,220,255,0.1)",
+    color: "#9fe7ff",
+    fontSize: 13,
+    whiteSpace: "nowrap",
+  },
+  infoBox: {
+    borderRadius: 22,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    padding: 18,
+    lineHeight: 1.9,
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 15,
+  },
+  muted: {
+    color: "rgba(255,255,255,0.5)",
+  },
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: 12,
+  },
+  statTopRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 12,
+  },
+  statIcon: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statCard: {
+    borderRadius: 22,
+    padding: 18,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    minHeight: 116,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+  },
+  statTitle: {
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: "0.14em",
+    color: "rgba(255,255,255,0.55)",
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: 800,
+    color: "#f6f7fb",
+  },
+  sideInfoCard: {
+    borderRadius: 22,
+    padding: 20,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+  sectionTitleRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
+  panelText: {
+    color: "rgba(255,255,255,0.78)",
+    lineHeight: 1.8,
+    marginBottom: 0,
+  },
+  projectVisitorScreen: {
+    display: "grid",
+    gap: 20,
+  },
+  visitorScreenVideo: {
+    width: "100%",
+    height: 520,
+    borderRadius: 24,
+    border: "none",
+    background: "#000",
+  },
+  videoCard: {
+    borderRadius: 24,
+    padding: 20,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+  videoFrame: {
+    marginTop: 14,
+    width: "100%",
+    height: 320,
+    borderRadius: 18,
+    border: "none",
+    background: "#000",
+  },
+  videoPlaceholder: {
+    marginTop: 14,
+    borderRadius: 18,
+    border: "1px dashed rgba(255,255,255,0.15)",
+    background: "rgba(0,0,0,0.25)",
+    color: "rgba(255,255,255,0.55)",
+    padding: 30,
+    textAlign: "center",
+  },
+  uploadBtn: {
+    marginTop: 12,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 16,
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(255,255,255,0.06)",
+    color: "#fff",
+    padding: "14px 16px",
+    cursor: "pointer",
+  },
+  linkBtn: {
+    display: "inline-block",
+    textDecoration: "none",
+    color: "#00131b",
+    background: "#7de8ff",
+    borderRadius: 999,
+    padding: "10px 16px",
+    fontWeight: 700,
+  },
+  dataWrap: {
+    display: "grid",
+    gap: 18,
+  },
+  searchBarWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 18,
+    padding: "14px 16px",
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+  searchInput: {
+    flex: 1,
+    background: "transparent",
+    border: "none",
+    outline: "none",
+    color: "#fff",
+    fontSize: 15,
+    minWidth: 0,
+  },
+  selectInput: {
+    width: "100%",
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.06)",
+    color: "#fff",
+    padding: "12px 14px",
+    outline: "none",
+    fontSize: 14,
+    boxSizing: "border-box",
+  },
+  searchGrid: {
+    display: "grid",
+    gap: 16,
+  },
+  searchCard: {
+    overflow: "hidden",
+    borderRadius: 22,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+  searchImage: {
+    width: "100%",
+    height: 220,
+    objectFit: "cover",
+  },
+  searchPlaceholder: {
+    width: "100%",
+    height: 220,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "rgba(0,0,0,0.25)",
+    color: "rgba(255,255,255,0.35)",
+  },
+  observationWrap: {
+    display: "grid",
+    gap: 18,
+  },
+  observationToolbarAdvanced: {
+    marginTop: 14,
+    display: "grid",
+    gap: 12,
+  },
+  observationImageWrap: {
+    marginTop: 16,
+    width: "100%",
+    height: 420,
+    overflow: "hidden",
+    borderRadius: 22,
+    background: "#000",
+    border: "1px solid rgba(255,255,255,0.08)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  observationImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    transition: "transform 0.35s ease",
+  },
+  creatorsPageWrap: {
+    width: "min(1280px, 96%)",
+    position: "relative",
+    zIndex: 3,
+  },
+  creatorsPageTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 20,
+    alignItems: "flex-end",
+    marginBottom: 28,
+    flexWrap: "wrap",
+  },
+  creatorsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: 20,
+  },
+  creatorProfileCard: {
+    borderRadius: 28,
+    overflow: "hidden",
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    backdropFilter: "blur(12px)",
+  },
+  creatorImageWrap: {
+    width: "100%",
+    height: 300,
+    background: "rgba(255,255,255,0.04)",
+  },
+  creatorImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+  },
+  creatorInfoWrap: {
+    padding: 20,
+  },
+  creatorCount: {
+    fontSize: 12,
+    letterSpacing: "0.14em",
+    textTransform: "uppercase",
+    color: "#9fe7ff",
+    marginBottom: 8,
+  },
+  creatorName: {
+    margin: "0 0 14px",
+    fontSize: 28,
+    lineHeight: 1.1,
+  },
+  creatorMetaItem: {
+    color: "rgba(255,255,255,0.82)",
+    lineHeight: 1.8,
+    fontSize: 15,
+  },
+  creatorMetaLabel: {
+    color: "rgba(255,255,255,0.5)",
+    marginRight: 6,
+  },
+  creatorEditorWrap: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: 18,
+    marginTop: 16,
+  },
+  creatorEditorCard: {
+    borderRadius: 20,
+    padding: 16,
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+  historyList: {
+    display: "grid",
+    gap: 12,
+    marginTop: 14,
+    maxHeight: 520,
+    overflowY: "auto",
+  },
+  historyCard: {
+    borderRadius: 16,
+    padding: 14,
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+  researchMediaWrap: {
+    marginTop: 16,
+    width: "100%",
+    height: 240,
+    borderRadius: 20,
+    overflow: "hidden",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "#000",
+  },
+  researchImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  disabledCard: {
+    borderRadius: 16,
+    padding: 14,
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+  soundWrap: {
+    display: "grid",
+    gap: 18,
+  },
+  soundButtonGrid: {
+    marginTop: 18,
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: 14,
+  },
+  soundBtn: {
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.06)",
+    color: "#fff",
+    borderRadius: 18,
+    padding: "18px 16px",
+    fontWeight: 700,
+    fontSize: 15,
+    cursor: "pointer",
+  },
+  goldenButtonWrap: {
+    marginTop: 20,
+    display: "flex",
+    justifyContent: "center",
+  },
+  goldenResearchBtn: {
+    border: "none",
+    borderRadius: 999,
+    padding: "14px 24px",
+    background: "linear-gradient(90deg, #f7d774, #ffb347, #ffe28a)",
+    color: "#1b1200",
+    fontWeight: 800,
+    fontSize: 15,
+    cursor: "pointer",
+    boxShadow: "0 12px 24px rgba(255,179,71,0.28)",
+  },
+  researchGalleryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: 18,
+  },
+  researchGalleryCard: {
+    overflow: "hidden",
+    borderRadius: 22,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+  researchGalleryImage: {
+    width: "100%",
+    height: 220,
+    objectFit: "cover",
+    display: "block",
+  },
+  phonePrefix: {
+    color: "#7de8ff",
+    fontWeight: 700,
+    fontSize: 15,
+    whiteSpace: "nowrap",
+  },
+  phoneFieldWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 12,
+  },
+};
