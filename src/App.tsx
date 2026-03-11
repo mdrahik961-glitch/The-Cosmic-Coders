@@ -25,7 +25,6 @@ import {
   Thermometer,
   User,
   UserPlus,
-  Video,
   Waves,
 } from "lucide-react";
 import spaceBg from "./assets/space-bg.png";
@@ -146,7 +145,6 @@ type Telemetry = {
 const ADMIN_EMAIL = "md.rahik.961@gmail.com";
 const ADMIN_PASSWORD = "222009rahi";
 const TEAM_LOGO = "/team-logo.jpg";
-const INTRO_VIDEO = "/videos/space-intro.mp4";
 
 const introScenes = [
   {
@@ -244,60 +242,67 @@ const missionInfo: Record<
   },
 };
 
+const voyagerGalleryBase = [
+  ["Launch of Voyager 1", "https://images-assets.nasa.gov/image/PIA17045/PIA17045~orig.jpg", "1977-09-05"],
+  ["Jupiter Approach", "https://images-assets.nasa.gov/image/PIA02873/PIA02873~orig.jpg", "1979-01-09"],
+  ["Io Volcanoes", "https://images-assets.nasa.gov/image/PIA00320/PIA00320~orig.jpg", "1979-03-08"],
+  ["Europa Surface Study", "https://images-assets.nasa.gov/image/PIA01403/PIA01403~orig.jpg", "1979-03-05"],
+  ["Great Red Spot Detail", "https://images-assets.nasa.gov/image/PIA02882/PIA02882~orig.jpg", "1979-03-06"],
+  ["Jupiter Ring Discovery", "https://images-assets.nasa.gov/image/PIA01527/PIA01527~orig.jpg", "1979-03-07"],
+  ["Saturn Flyby", "https://images-assets.nasa.gov/image/PIA01984/PIA01984~orig.jpg", "1980-11-12"],
+  ["Titan Atmosphere", "https://images-assets.nasa.gov/image/PIA01989/PIA01989~orig.jpg", "1980-11-12"],
+  ["Saturn Ring Structure", "https://images-assets.nasa.gov/image/PIA01979/PIA01979~orig.jpg", "1980-11-13"],
+  ["Golden Record Legacy", "https://images-assets.nasa.gov/image/PIA17048/PIA17048~orig.jpg", "1977-09-05"],
+  ["Outer Heliosphere Science", "https://images-assets.nasa.gov/image/PIA17046/PIA17046~orig.jpg", "2004-12-16"],
+  ["Termination Shock Crossing", "https://images-assets.nasa.gov/image/PIA17047/PIA17047~orig.jpg", "2004-12-16"],
+  ["Heliopause Region", "https://images-assets.nasa.gov/image/PIA17049/PIA17049~orig.jpg", "2012-08-25"],
+  ["Interstellar Space Entry", "https://images-assets.nasa.gov/image/PIA17050/PIA17050~orig.jpg", "2012-08-25"],
+  ["Cosmic Ray Increase", "https://images-assets.nasa.gov/image/PIA17051/PIA17051~orig.jpg", "2013-09-12"],
+  ["Pale Blue Dot", "https://science.nasa.gov/wp-content/uploads/2023/09/pia23645-main.jpg", "1990-02-14"],
+  ["Solar System Family Portrait", "https://images-assets.nasa.gov/image/PIA00452/PIA00452~orig.jpg", "1990-02-14"],
+  ["Long-Duration Telemetry", "https://images-assets.nasa.gov/image/PIA17052/PIA17052~orig.jpg", "2020-01-01"],
+  ["Deep Space Network Support", "https://images-assets.nasa.gov/image/PIA17053/PIA17053~orig.jpg", "2021-01-01"],
+  ["Instrument Power Management", "https://images-assets.nasa.gov/image/PIA17054/PIA17054~orig.jpg", "2022-01-01"],
+  ["Interstellar Plasma Science", "https://images-assets.nasa.gov/image/PIA17055/PIA17055~orig.jpg", "2023-01-01"],
+];
+
+const hubbleGalleryBase = [
+  ["Hubble Launch", "https://images-assets.nasa.gov/image/PIA01322/PIA01322~orig.jpg", "1990-04-24"],
+  ["Early Light and First Images", "https://images-assets.nasa.gov/image/PIA01427/PIA01427~orig.jpg", "1990-05-20"],
+  ["Optics Repair Mission", "https://images-assets.nasa.gov/image/PIA01428/PIA01428~orig.jpg", "1993-12-02"],
+  ["Pillars of Creation", "https://science.nasa.gov/wp-content/uploads/2023/09/heic1501a-jpg.webp", "1995-04-01"],
+  ["Hubble Deep Field", "https://images-assets.nasa.gov/image/PIA01322/PIA01322~orig.jpg", "1995-12-18"],
+  ["Ultra Deep Field", "https://images-assets.nasa.gov/image/PIA11761/PIA11761~orig.jpg", "2004-09-24"],
+  ["Extreme Deep Field", "https://images-assets.nasa.gov/image/PIA16873/PIA16873~orig.jpg", "2012-09-25"],
+  ["Andromeda Panorama", "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001861/GSFC_20171208_Archive_e001861~orig.jpg", "2015-01-05"],
+  ["Expansion Rate Studies", "https://images-assets.nasa.gov/image/PIA16884/PIA16884~orig.jpg", "2016-06-01"],
+  ["Dark Energy Evidence", "https://images-assets.nasa.gov/image/PIA04111/PIA04111~orig.jpg", "2003-01-08"],
+  ["Black Hole in M87", "https://images-assets.nasa.gov/image/PIA04226/PIA04226~orig.jpg", "1999-07-19"],
+  ["Star Birth in Orion", "https://images-assets.nasa.gov/image/PIA04291/PIA04291~orig.jpg", "2006-01-11"],
+  ["Sombrero Galaxy", "https://images-assets.nasa.gov/image/PIA03252/PIA03252~orig.jpg", "2003-05-29"],
+  ["Butterfly Nebula Detail", "https://images-assets.nasa.gov/image/PIA06995/PIA06995~orig.jpg", "2005-02-01"],
+  ["Crab Nebula Close Study", "https://images-assets.nasa.gov/image/PIA03606/PIA03606~orig.jpg", "2002-08-12"],
+  ["Jupiter Impact Events", "https://images-assets.nasa.gov/image/PIA11800/PIA11800~orig.jpg", "2009-07-23"],
+  ["Mars Atmospheric Monitoring", "https://images-assets.nasa.gov/image/PIA21472/PIA21472~orig.jpg", "2016-05-12"],
+  ["Comet Shoemaker-Levy 9 Aftermath", "https://images-assets.nasa.gov/image/PIA00814/PIA00814~orig.jpg", "1994-07-23"],
+  ["Exoplanet Atmosphere Observations", "https://images-assets.nasa.gov/image/PIA11116/PIA11116~orig.jpg", "2008-03-19"],
+  ["Servicing Mission 4 Upgrade", "https://images-assets.nasa.gov/image/PIA12234/PIA12234~orig.jpg", "2009-05-19"],
+  ["Globular Cluster Mapping", "https://images-assets.nasa.gov/image/PIA04234/PIA04234~orig.jpg", "2001-07-10"],
+];
+
 const missionGallery: Record<MissionType, Array<{ title: string; image: string; detail: string; date: string }>> = {
-  voyager: [
-    {
-      title: "Pale Blue Dot",
-      image: "https://science.nasa.gov/wp-content/uploads/2023/09/pia23645-main.jpg",
-      date: "1990-02-14",
-      detail: "Earth as seen from deep space by Voyager 1.",
-    },
-    {
-      title: "Io Volcanic Discovery",
-      image: "https://images-assets.nasa.gov/image/PIA00320/PIA00320~orig.jpg",
-      date: "1979-03-08",
-      detail: "Voyager discovered active volcanism on Io.",
-    },
-    {
-      title: "Neptune Great Dark Spot",
-      image: "https://images-assets.nasa.gov/image/PIA01492/PIA01492~orig.jpg",
-      date: "1989-08-25",
-      detail: "Voyager 2 revealed strong storms on Neptune.",
-    },
-    {
-      title: "Golden Record Legacy",
-      image: "https://images-assets.nasa.gov/image/PIA17048/PIA17048~orig.jpg",
-      date: "1977-09-05",
-      detail: "Voyager carried humanity’s Golden Record into deep space.",
-    },
-  ],
-  hubble: [
-    {
-      title: "Pillars of Creation",
-      image: "https://science.nasa.gov/wp-content/uploads/2023/09/heic1501a-jpg.webp",
-      date: "1995-04-01",
-      detail: "A famous Hubble image of star-forming gas pillars.",
-    },
-    {
-      title: "Hubble Deep Field",
-      image: "https://images-assets.nasa.gov/image/PIA01322/PIA01322~orig.jpg",
-      date: "1995-12-18",
-      detail: "A tiny patch of sky revealing countless distant galaxies.",
-    },
-    {
-      title: "Ultra Deep Field",
-      image: "https://images-assets.nasa.gov/image/PIA11761/PIA11761~orig.jpg",
-      date: "2004-09-24",
-      detail: "One of the deepest visible-light views of the universe.",
-    },
-    {
-      title: "Andromeda Panorama",
-      image:
-        "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001861/GSFC_20171208_Archive_e001861~orig.jpg",
-      date: "2015-01-05",
-      detail: "A huge mosaic of Andromeda captured by Hubble.",
-    },
-  ],
+  voyager: voyagerGalleryBase.map(([title, image, date], index) => ({
+    title,
+    image,
+    date,
+    detail: `Voyager research archive item ${index + 1}. This entry highlights a major milestone, image set, or engineering achievement from the Voyager mission timeline.`,
+  })),
+  hubble: hubbleGalleryBase.map(([title, image, date], index) => ({
+    title,
+    image,
+    date,
+    detail: `Hubble research archive item ${index + 1}. This entry highlights a major observation, servicing milestone, or discovery from Hubble’s science history.`,
+  })),
 };
 
 function useLocalStorageState<T>(key: string, initialValue: T) {
@@ -392,9 +397,7 @@ function safeDateLabel(date?: string) {
 }
 
 async function resizeImageFile(file: File, maxSize = 500, quality = 0.7): Promise<string> {
-  if (!file.type.startsWith("image/")) {
-    throw new Error("Only image files are allowed");
-  }
+  if (!file.type.startsWith("image/")) throw new Error("Only image files are allowed");
 
   const src = URL.createObjectURL(file);
 
@@ -427,29 +430,8 @@ async function resizeImageFile(file: File, maxSize = 500, quality = 0.7): Promis
   }
 }
 
-function getYouTubeEmbedUrl(url: string) {
-  try {
-    if (!url) return "";
-    if (url.includes("youtube.com/watch?v=")) {
-      const parsed = new URL(url);
-      const id = parsed.searchParams.get("v");
-      return id ? `https://www.youtube.com/embed/${id}` : url;
-    }
-    if (url.includes("youtu.be/")) {
-      const parsed = new URL(url);
-      const id = parsed.pathname.split("/").filter(Boolean)[0];
-      return id ? `https://www.youtube.com/embed/${id}` : url;
-    }
-    if (url.includes("youtube.com/embed/")) return url;
-    return url;
-  } catch {
-    return url;
-  }
-}
-
 function SpaceProbe({ type }: { type: MissionType }) {
   const groupRef = useRef<THREE.Group>(null);
-
   const voyager = useGLTF("/models/voyager.glb");
   const hubble = useGLTF("/models/hubble.glb");
 
@@ -473,19 +455,16 @@ function SpaceProbe({ type }: { type: MissionType }) {
     groupRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.55) * 0.08;
   });
 
-return (
-  <group
-    ref={groupRef}
-    scale={type === "voyager" ? 0.3 : 0.55}
-    position={[0, -0.5, 0]}
-  >
-    <primitive object={scene} />
-  </group>
-);
+  return (
+    <group
+      ref={groupRef}
+      scale={type === "voyager" ? 0.4 : 0.65}
+      position={[0, -0.45, 0]}
+    >
+      <primitive object={scene} />
+    </group>
+  );
 }
-
-useGLTF.preload("/models/voyager.glb");
-useGLTF.preload("/models/hubble.glb");
 
 function MissionViewer({ type }: { type: MissionType }) {
   return (
@@ -500,7 +479,7 @@ function MissionViewer({ type }: { type: MissionType }) {
         <ambientLight intensity={1.8} />
         <directionalLight position={[8, 8, 8]} intensity={2.4} />
         <pointLight position={[0, 0, 4]} intensity={1.2} />
-        <Stars radius={80} depth={40} count={2500} factor={4} fade speed={1} />
+        <Stars radius={60} depth={30} count={900} factor={3} fade speed={1} />
         <SpaceProbe type={type} />
         <OrbitControls enableZoom minDistance={3} maxDistance={10} enablePan={false} />
       </Canvas>
@@ -511,11 +490,11 @@ function MissionViewer({ type }: { type: MissionType }) {
 
 function useTelemetry(type: MissionType) {
   const [data, setData] = useState<Telemetry>(() => ({
-    battery: type === "voyager" ? 74 : 93,
-    signal: type === "voyager" ? 87 : 96,
-    temp: type === "voyager" ? -62 : 12,
-    packets: type === "voyager" ? 12654 : 8412,
-    velocity: type === "voyager" ? 17.3 : 7.6,
+    battery: type === "voyager" ? 41 : 88,
+    signal: type === "voyager" ? 67 : 95,
+    temp: type === "voyager" ? -58 : 11,
+    packets: type === "voyager" ? 148920 : 58340,
+    velocity: type === "voyager" ? 17.0 : 7.5,
     mode: missionInfo[type].modes[0],
     task: missionInfo[type].tasks[0],
     lastUpdate: new Date().toLocaleTimeString(),
@@ -526,23 +505,26 @@ function useTelemetry(type: MissionType) {
       setData((prev) => ({
         battery:
           type === "voyager"
-            ? Math.max(45, Math.min(80, prev.battery + (Math.random() > 0.65 ? -1 : 0)))
-            : Math.max(70, Math.min(100, prev.battery + (Math.random() > 0.5 ? -1 : 1))),
-        signal: Math.max(60, Math.min(100, prev.signal + Math.floor(Math.random() * 7) - 3)),
+            ? Number(Math.max(35, Math.min(45, prev.battery + (Math.random() * 0.3 - 0.2))).toFixed(1))
+            : Number(Math.max(84, Math.min(92, prev.battery + (Math.random() * 0.8 - 0.4))).toFixed(1)),
+        signal:
+          type === "voyager"
+            ? Number(Math.max(58, Math.min(74, prev.signal + (Math.random() * 2 - 1))).toFixed(1))
+            : Number(Math.max(91, Math.min(99, prev.signal + (Math.random() * 1.5 - 0.75))).toFixed(1)),
         temp:
           type === "voyager"
-            ? Math.max(-90, Math.min(-25, prev.temp + (Math.random() > 0.5 ? 1 : -1)))
-            : Math.max(-10, Math.min(30, prev.temp + (Math.random() > 0.5 ? 1 : -1))),
-        packets: prev.packets + Math.floor(Math.random() * 120 + 25),
+            ? Number(Math.max(-65, Math.min(-45, prev.temp + (Math.random() * 2 - 1))).toFixed(1))
+            : Number(Math.max(5, Math.min(18, prev.temp + (Math.random() * 1.6 - 0.8))).toFixed(1)),
+        packets: prev.packets + Math.floor(Math.random() * 180 + 40),
         velocity:
           type === "voyager"
-            ? Number((17 + Math.random() * 0.8).toFixed(2))
-            : Number((7.2 + Math.random() * 0.8).toFixed(2)),
+            ? Number((16.9 + Math.random() * 0.3).toFixed(2))
+            : Number((7.45 + Math.random() * 0.15).toFixed(2)),
         mode: missionInfo[type].modes[Math.floor(Math.random() * missionInfo[type].modes.length)],
         task: missionInfo[type].tasks[Math.floor(Math.random() * missionInfo[type].tasks.length)],
         lastUpdate: new Date().toLocaleTimeString(),
       }));
-    }, 1800);
+    }, 2200);
 
     return () => clearInterval(timer);
   }, [type]);
@@ -673,7 +655,7 @@ function MissionCard({
             <h2 style={styles.cardTitle}>{info.label}</h2>
             <div style={styles.cardSubtitle}>{info.subtitle}</div>
           </div>
-          <div style={styles.liveBadge}>Simulation Live</div>
+          <div style={styles.liveBadge}>Simulated Telemetry</div>
         </div>
 
         <div style={styles.infoBox}>
@@ -795,7 +777,6 @@ export default function App() {
   const [missionResearchOpen, setMissionResearchOpen] = useState<MissionType | null>(null);
 
   const [adminMedia, setAdminMedia] = useLocalStorageState("cosmic-admin-media", {
-    videoUrl: "",
     pptxName: "",
     pptxUrl: "",
   });
@@ -926,7 +907,7 @@ export default function App() {
         const res = await fetch("https://images-api.nasa.gov/search?q=astronomy&media_type=image");
         const data = await res.json();
 
-        const items = (data?.collection?.items || []).slice(0, 9).map((item: any, index: number) => ({
+        const items = (data?.collection?.items || []).slice(0, 6).map((item: any, index: number) => ({
           id: item?.data?.[0]?.nasa_id || `feed-${index}`,
           title: item?.data?.[0]?.title || "NASA Item",
           description: item?.data?.[0]?.description || "Astronomy content available.",
@@ -953,7 +934,7 @@ export default function App() {
         const res = await fetch(`https://images-api.nasa.gov/search?q=${encodeURIComponent(searchTerm)}&media_type=image`);
         const data = await res.json();
 
-        const items = (data?.collection?.items || []).slice(0, 9).map((item: any, index: number) => ({
+        const items = (data?.collection?.items || []).slice(0, 6).map((item: any, index: number) => ({
           id: item?.data?.[0]?.nasa_id || `nasa-${index}`,
           title: item?.data?.[0]?.title || "Untitled",
           description: item?.data?.[0]?.description || "No description available.",
@@ -983,7 +964,7 @@ export default function App() {
         const data = await res.json();
 
         const items: ObservationItem[] = (data?.collection?.items || [])
-          .slice(0, 60)
+          .slice(0, 15)
           .map((item: any, index: number) => {
             const rawTitle = item?.data?.[0]?.title || `Observation ${index + 1}`;
             const rawDescription = item?.data?.[0]?.description || "NASA observation image.";
@@ -1023,7 +1004,7 @@ export default function App() {
               sourceLine: `Source: NASA Image Library | Mission / Telescope: ${mission}`,
               date: rawDate,
             };
-                    })
+          })
           .filter((item: ObservationItem) => Boolean(item.image));
 
         setObservationDeckItems(items);
@@ -1565,13 +1546,14 @@ export default function App() {
 
             <div style={styles.videoCard}>
               <div style={styles.sectionTitleRow}>
-                <Video size={18} color="#7de8ff" />
-                <h3 style={{ margin: 0 }}>Space Intro Video</h3>
+                <ImageIcon size={18} color="#7de8ff" />
+                <h3 style={{ margin: 0 }}>Mission Access Brief</h3>
               </div>
 
-              <video controls autoPlay muted loop style={styles.videoFrame}>
-                <source src={INTRO_VIDEO} type="video/mp4" />
-              </video>
+              <div style={styles.videoPlaceholder}>
+                Welcome to the cosmic mission interface. Enter the main page to explore Voyager, Hubble, observation data,
+                creator profiles, comments, and mission research galleries.
+              </div>
             </div>
           </div>
         </div>
@@ -1606,7 +1588,7 @@ export default function App() {
 
             <button style={styles.menuCard} onClick={() => setPanel("projects")}>
               <div style={styles.menuTitle}>Know More About Project</div>
-              <div style={styles.menuText}>Visitor screen area with creator video control.</div>
+              <div style={styles.menuText}>Project brief, creator updates, and presentation access.</div>
             </button>
 
             <button style={styles.menuCard} onClick={() => setPanel("observation")}>
@@ -1761,6 +1743,45 @@ export default function App() {
                       ))}
                   </div>
                 </div>
+
+                <div style={{ marginTop: 24 }}>
+                  <div style={styles.sectionTitleRow}>
+                    <User size={18} color="#7de8ff" />
+                    <h3 style={{ margin: 0 }}>Project Creators</h3>
+                  </div>
+
+                  <div style={{ ...styles.creatorsGrid, marginTop: 16 }}>
+                    {creatorProfiles.map((creatorItem, index) => (
+                      <div key={creatorItem.id} style={styles.creatorProfileCard}>
+                        <div style={styles.creatorImageWrap}>
+                          <img
+                            src={creatorItem.image}
+                            alt={creatorItem.name}
+                            style={styles.creatorImage}
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = "https://via.placeholder.com/400x400?text=Creator";
+                            }}
+                          />
+                        </div>
+
+                        <div style={styles.creatorInfoWrap}>
+                          <div style={styles.creatorCount}>Creator {index + 1}</div>
+                          <h3 style={styles.creatorName}>{creatorItem.name}</h3>
+
+                          <div style={styles.creatorMetaItem}>
+                            <span style={styles.creatorMetaLabel}>Mail:</span> {creatorItem.email}
+                          </div>
+                          <div style={styles.creatorMetaItem}>
+                            <span style={styles.creatorMetaLabel}>Class:</span> {creatorItem.className}
+                          </div>
+                          <div style={styles.creatorMetaItem}>
+                            <span style={styles.creatorMetaLabel}>School:</span> {creatorItem.school}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1820,21 +1841,14 @@ export default function App() {
 
               <div style={styles.sideInfoCard}>
                 <div style={styles.sectionTitleRow}>
-                  <Video size={18} color="#7de8ff" />
+                  <FileText size={18} color="#7de8ff" />
                   <h3 style={{ margin: 0 }}>Visitor Screen Control</h3>
                 </div>
 
-                <input
-                  style={styles.authInput}
-                  value={adminMedia.videoUrl}
-                  onChange={(e) =>
-                    setAdminMedia((prev) => ({
-                      ...prev,
-                      videoUrl: e.target.value,
-                    }))
-                  }
-                  placeholder="Paste YouTube or MP4 URL"
-                />
+                <div style={{ ...styles.panelText, marginTop: 14 }}>
+                  Intro video has been removed for faster loading. You can still manage creator cards, visitor history,
+                  comments, and downloadable presentation files.
+                </div>
 
                 <label style={styles.uploadBtn}>
                   <FileText size={16} /> Attach PPTX file
@@ -1853,6 +1867,7 @@ export default function App() {
                         pptxName: file.name,
                         pptxUrl: fileUrl,
                       }));
+                      speakInfo("Presentation file attached.");
                     }}
                   />
                 </label>
@@ -2043,6 +2058,7 @@ export default function App() {
                               const next = [...creatorProfiles];
                               next[index] = { ...next[index], image: url };
                               setCreatorProfiles(next);
+                              speakInfo("Creator picture saved.");
                             } catch {
                               speakInfo("Creator picture upload failed.");
                             }
@@ -2051,6 +2067,18 @@ export default function App() {
                       </label>
                     </div>
                   ))}
+                </div>
+
+                <div style={{ marginTop: 18 }}>
+                  <button
+                    style={styles.primaryBtn}
+                    onClick={() => {
+                      setCreatorProfiles([...creatorProfiles]);
+                      speakInfo("Creator cards saved and updated for visitors.");
+                    }}
+                  >
+                    Save Creator Cards
+                  </button>
                 </div>
               </div>
             )}
@@ -2067,23 +2095,30 @@ export default function App() {
 
       <Modal open={panel === "projects"} title="Know More About Project" onClose={() => setPanel(null)}>
         <div style={styles.projectVisitorScreen}>
-          {adminMedia.videoUrl ? (
-            adminMedia.videoUrl.includes("youtube.com") || adminMedia.videoUrl.includes("youtu.be") ? (
-              <iframe
-                title="Visitor Screen Video"
-                src={getYouTubeEmbedUrl(adminMedia.videoUrl)}
-                style={styles.visitorScreenVideo}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+          <div style={styles.sideInfoCard}>
+            <div style={styles.sectionTitleRow}>
+              <FileText size={18} color="#7de8ff" />
+              <h3 style={{ margin: 0 }}>Project Brief</h3>
+            </div>
+
+            <p style={{ ...styles.panelText, marginTop: 12 }}>
+              This project combines visitor accounts, creator management, 3D mission monitoring, observation browsing,
+              research galleries, comments, and astronomy-inspired interface design.
+            </p>
+
+            <p style={{ ...styles.panelText, marginTop: 12 }}>
+              The intro video has been removed to improve website speed and reduce loading delay.
+            </p>
+
+            {adminMedia.pptxName ? (
+              <div style={{ marginTop: 18 }}>
+                <div style={styles.heroBadge}>Attached Presentation</div>
+                <div style={{ fontWeight: 700, marginTop: 8 }}>{adminMedia.pptxName}</div>
+              </div>
             ) : (
-              <video controls autoPlay loop style={styles.visitorScreenVideo}>
-                <source src={adminMedia.videoUrl} />
-              </video>
-            )
-          ) : (
-            <div style={styles.videoPlaceholder}>No visitor video added yet.</div>
-          )}
+              <div style={styles.videoPlaceholder}>No presentation file attached yet.</div>
+            )}
+          </div>
         </div>
       </Modal>
 
@@ -2113,15 +2148,9 @@ export default function App() {
                 value={observationMode}
                 onChange={(e) => setObservationMode(e.target.value as "all" | "pictures" | "research")}
               >
-                <option value="all" style={{ color: "#000" }}>
-                  All Results
-                </option>
-                <option value="pictures" style={{ color: "#000" }}>
-                  Pictures Only
-                </option>
-                <option value="research" style={{ color: "#000" }}>
-                  Research Type
-                </option>
+                <option value="all" style={{ color: "#000" }}>All Results</option>
+                <option value="pictures" style={{ color: "#000" }}>Pictures Only</option>
+                <option value="research" style={{ color: "#000" }}>Research Type</option>
               </select>
 
               <select
@@ -2129,36 +2158,16 @@ export default function App() {
                 value={observationCategory}
                 onChange={(e) => setObservationCategory(e.target.value)}
               >
-                <option value="All" style={{ color: "#000" }}>
-                  All Categories
-                </option>
-                <option value="Planet" style={{ color: "#000" }}>
-                  Planets
-                </option>
-                <option value="Moon" style={{ color: "#000" }}>
-                  Moons
-                </option>
-                <option value="Galaxy" style={{ color: "#000" }}>
-                  Galaxies
-                </option>
-                <option value="Nebula" style={{ color: "#000" }}>
-                  Nebulae
-                </option>
-                <option value="Star" style={{ color: "#000" }}>
-                  Stars
-                </option>
-                <option value="Comet" style={{ color: "#000" }}>
-                  Comets
-                </option>
-                <option value="Asteroid" style={{ color: "#000" }}>
-                  Asteroids
-                </option>
-                <option value="Mission" style={{ color: "#000" }}>
-                  Missions
-                </option>
-                <option value="Deep Space" style={{ color: "#000" }}>
-                  Deep Space
-                </option>
+                <option value="All" style={{ color: "#000" }}>All Categories</option>
+                <option value="Planet" style={{ color: "#000" }}>Planets</option>
+                <option value="Moon" style={{ color: "#000" }}>Moons</option>
+                <option value="Galaxy" style={{ color: "#000" }}>Galaxies</option>
+                <option value="Nebula" style={{ color: "#000" }}>Nebulae</option>
+                <option value="Star" style={{ color: "#000" }}>Stars</option>
+                <option value="Comet" style={{ color: "#000" }}>Comets</option>
+                <option value="Asteroid" style={{ color: "#000" }}>Asteroids</option>
+                <option value="Mission" style={{ color: "#000" }}>Missions</option>
+                <option value="Deep Space" style={{ color: "#000" }}>Deep Space</option>
               </select>
             </div>
 
@@ -2369,21 +2378,11 @@ export default function App() {
             </p>
 
             <div style={styles.soundButtonGrid}>
-              <button style={styles.soundBtn} onClick={() => playSpaceSound("planet")}>
-                Planet Sound
-              </button>
-              <button style={styles.soundBtn} onClick={() => playSpaceSound("solar")}>
-                Solar Wind
-              </button>
-              <button style={styles.soundBtn} onClick={() => playSpaceSound("jupiter")}>
-                Jupiter
-              </button>
-              <button style={styles.soundBtn} onClick={() => playSpaceSound("saturn")}>
-                Saturn
-              </button>
-              <button style={styles.soundBtn} onClick={() => playSpaceSound("event")}>
-                Space Event
-              </button>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("planet")}>Planet Sound</button>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("solar")}>Solar Wind</button>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("jupiter")}>Jupiter</button>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("saturn")}>Saturn</button>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("event")}>Space Event</button>
             </div>
           </div>
         </div>
@@ -2610,11 +2609,6 @@ const styles: Record<string, React.CSSProperties> = {
   visitorTabActive: {
     background: "linear-gradient(90deg, #e9eef2, #f7d778, #f1b451)",
     color: "#151923",
-    border: "1px solid rgba(255,255,255,0.18)",
-  },
-  creatorTabActive: {
-    background: "linear-gradient(90deg, #b7f6ff, #8e6bff, #d6407d)",
-    color: "#fff",
     border: "1px solid rgba(255,255,255,0.18)",
   },
   authModeBtnInactive: {
@@ -3163,26 +3157,11 @@ const styles: Record<string, React.CSSProperties> = {
     display: "grid",
     gap: 20,
   },
-  visitorScreenVideo: {
-    width: "100%",
-    height: 520,
-    borderRadius: 24,
-    border: "none",
-    background: "#000",
-  },
   videoCard: {
     borderRadius: 24,
     padding: 20,
     background: "rgba(255,255,255,0.05)",
     border: "1px solid rgba(255,255,255,0.08)",
-  },
-  videoFrame: {
-    marginTop: 14,
-    width: "100%",
-    height: 320,
-    borderRadius: 18,
-    border: "none",
-    background: "#000",
   },
   videoPlaceholder: {
     marginTop: 14,
