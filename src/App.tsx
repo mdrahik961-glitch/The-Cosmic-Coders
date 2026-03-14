@@ -26,6 +26,7 @@ import {
   User,
   UserPlus,
   Waves,
+  Globe2,
 } from "lucide-react";
 import spaceBg from "./assets/space-bg.png";
 
@@ -40,7 +41,7 @@ type Screen =
   | "creators"
   | "visitorAccount";
 
-type Panel = null | "missions" | "projects" | "observation" | "data" | "sounds";
+type Panel = null | "missions" | "projects" | "observation" | "data" | "sounds" | "universe";
 type VisitorAuthMode = "signup" | "login";
 type MissionType = "voyager" | "hubble";
 
@@ -142,9 +143,18 @@ type Telemetry = {
   lastUpdate: string;
 };
 
+type NasaLiveData = {
+  title?: string;
+  explanation?: string;
+  url?: string;
+  media_type?: string;
+  date?: string;
+};
+
 const ADMIN_EMAIL = "md.rahik.961@gmail.com";
 const ADMIN_PASSWORD = "222009rahi";
 const TEAM_LOGO = "/team-logo.jpg";
+const NASA_API_KEY = "qYZmjIejfH714M1RJLW4uqbhZJKAshBsmtM9Mqzf";
 
 const introScenes = [
   {
@@ -394,6 +404,30 @@ function safeDateLabel(date?: string) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return "Unknown";
   return d.toLocaleDateString();
+}
+
+function toYouTubeEmbedUrl(url: string) {
+  if (!url.trim()) return "";
+
+  try {
+    if (url.includes("watch?v=")) {
+      return url.replace("watch?v=", "embed/");
+    }
+
+    if (url.includes("youtu.be/")) {
+      const id = url.split("youtu.be/")[1]?.split("?")[0];
+      return id ? `https://www.youtube.com/embed/${id}` : url;
+    }
+
+    if (url.includes("/shorts/")) {
+      const id = url.split("/shorts/")[1]?.split("?")[0];
+      return id ? `https://www.youtube.com/embed/${id}` : url;
+    }
+
+    return url;
+  } catch {
+    return url;
+  }
 }
 
 async function resizeImageFile(file: File, maxSize = 500, quality = 0.7): Promise<string> {
@@ -776,10 +810,13 @@ export default function App() {
   const [profileMessage, setProfileMessage] = useState("");
   const [missionResearchOpen, setMissionResearchOpen] = useState<MissionType | null>(null);
 
-  const [adminMedia, setAdminMedia] = useLocalStorageState("cosmic-admin-media", {
-    pptxName: "",
-    pptxUrl: "",
+  const [creatorVideo, setCreatorVideo] = useLocalStorageState("cosmic-creator-video", {
+    title: "Mission Brief Video",
+    youtubeUrl: "",
   });
+
+  const [nasaData, setNasaData] = useState<NasaLiveData | null>(null);
+  const [nasaLiveLoading, setNasaLiveLoading] = useState(false);
 
   const [comments, setComments] = useLocalStorageState<CommentItem[]>("cosmic-comments", []);
   const [visitorAccounts, setVisitorAccounts] = useLocalStorageState<VisitorAccount[]>("cosmic-visitor-accounts", []);
@@ -1031,12 +1068,33 @@ export default function App() {
     setObservationIndex(0);
   }, [observationCategory, observationMode]);
 
+  useEffect(() => {
+    const load = async () => {
+      setNasaLiveLoading(true);
+      try {
+        const res = await fetch(
+          `https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}`
+        );
+        const data = await res.json();
+        setNasaData(data);
+      } catch {
+        setNasaData(null);
+      } finally {
+        setNasaLiveLoading(false);
+      }
+    };
+
+    load();
+    const interval = setInterval(load, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   const loadBirthdayMemory = async (dob: string) => {
     if (!dob || !isValidDob(dob)) return;
     setBirthdayLoading(true);
 
     try {
-      const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY&date=${dob}`);
+      const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}&date=${dob}`);
       const data = await res.json();
 
       const memory = {
@@ -1253,22 +1311,24 @@ export default function App() {
 
   const playSpaceSound = (name: string) => {
     const map: Record<string, string> = {
-      planet: "/sounds/planet.mp3",
-      solar: "/sounds/solar-wind.mp3",
-      jupiter: "/sounds/jupiter.mp3",
-      saturn: "/sounds/saturn.mp3",
-      event: "/sounds/cosmic-event.mp3",
+      void: "/sounds/deep-space-void.mp3",
+      horror: "/sounds/cosmic-horror.mp3",
+      hole: "/sounds/black-hole.mp3",
+      radio: "/sounds/radio-scream.mp3",
+      pulse: "/sounds/dark-pulse.mp3",
     };
 
     const src = map[name];
     if (!src) return;
 
     const audio = new Audio(src);
-    audio.volume = 0.8;
+    audio.volume = 1;
     audio.play().catch(() => {
       speakInfo("Add the sound files inside public slash sounds folder to play them.");
     });
   };
+
+  const youtubeEmbedUrl = toYouTubeEmbedUrl(creatorVideo.youtubeUrl);
 
   return (
     <div style={styles.page}>
@@ -1552,7 +1612,7 @@ export default function App() {
 
               <div style={styles.videoPlaceholder}>
                 Welcome to the cosmic mission interface. Enter the main page to explore Voyager, Hubble, observation data,
-                creator profiles, comments, and mission research galleries.
+                creator profiles, comments, mission research galleries, YouTube creator video, 3D universe, and NASA live updates.
               </div>
             </div>
           </div>
@@ -1566,14 +1626,14 @@ export default function App() {
               <div style={styles.heroBadge}>Interactive Space Presentation</div>
               <h1 style={{ ...styles.heroTitle, fontSize: "clamp(32px, 5vw, 64px)" }}>Main Cosmic Interface</h1>
               <p style={{ ...styles.heroText, marginLeft: 0 }}>
-                Guided access to missions, visitor screen, space observation deck, NASA data, sound of universe, and creators.
+                Guided access to missions, visitor screen, space observation deck, NASA data, sound of universe, 3D universe explorer, and creators.
               </p>
             </div>
 
             <button
               style={styles.secondaryBtn}
               onClick={() =>
-                speakInfo("Choose any section and explore the project, missions, data, observation, and space sounds.")
+                speakInfo("Choose any section and explore the project, missions, data, observation, 3D universe, and space sounds.")
               }
             >
               Guide Me
@@ -1588,7 +1648,7 @@ export default function App() {
 
             <button style={styles.menuCard} onClick={() => setPanel("projects")}>
               <div style={styles.menuTitle}>Know More About Project</div>
-              <div style={styles.menuText}>Project brief, creator updates, and presentation access.</div>
+              <div style={styles.menuText}>Project brief, creator updates, and YouTube mission video access.</div>
             </button>
 
             <button style={styles.menuCard} onClick={() => setPanel("observation")}>
@@ -1603,7 +1663,12 @@ export default function App() {
 
             <button style={styles.menuCard} onClick={() => setPanel("sounds")}>
               <div style={styles.menuTitle}>Sound of Universe</div>
-              <div style={styles.menuText}>Play selected space-inspired sounds from the public sounds folder.</div>
+              <div style={styles.menuText}>Play dark, deep, horror-inspired space sounds from the public folder.</div>
+            </button>
+
+            <button style={styles.menuCard} onClick={() => setPanel("universe")}>
+              <div style={styles.menuTitle}>3D Universe</div>
+              <div style={styles.menuText}>Search satellites, spacecraft and space objects in NASA universe tools.</div>
             </button>
           </div>
 
@@ -1846,31 +1911,50 @@ export default function App() {
                 </div>
 
                 <div style={{ ...styles.panelText, marginTop: 14 }}>
-                  Intro video has been removed for faster loading. You can still manage creator cards, visitor history,
-                  comments, and downloadable presentation files.
+                  Presentation file system has been removed. Now the creator can control a YouTube mission brief video,
+                  while visitors can watch it from the project panel.
                 </div>
 
-                <label style={styles.uploadBtn}>
-                  <FileText size={16} /> Attach PPTX file
+                <div style={{ marginTop: 14 }}>
+                  <div style={styles.uploadBtn}>
+                    <FileText size={16} /> Set YouTube Video
+                  </div>
+
                   <input
-                    type="file"
-                    accept=".ppt,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                    hidden
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-
-                      const fileUrl = URL.createObjectURL(file);
-
-                      setAdminMedia((prev) => ({
-                        ...prev,
-                        pptxName: file.name,
-                        pptxUrl: fileUrl,
-                      }));
-                      speakInfo("Presentation file attached.");
-                    }}
+                    style={styles.authInput}
+                    type="text"
+                    placeholder="Paste YouTube link"
+                    value={creatorVideo.youtubeUrl}
+                    onChange={(e) =>
+                      setCreatorVideo({
+                        ...creatorVideo,
+                        youtubeUrl: e.target.value,
+                      })
+                    }
                   />
-                </label>
+
+                  <input
+                    style={styles.authInput}
+                    type="text"
+                    placeholder="Optional title"
+                    value={creatorVideo.title}
+                    onChange={(e) =>
+                      setCreatorVideo({
+                        ...creatorVideo,
+                        title: e.target.value,
+                      })
+                    }
+                  />
+
+                  <div style={{ marginTop: 12 }}>
+                    <button
+                      style={styles.primaryBtn}
+                      onClick={() => speakInfo("Creator video updated for visitors.")}
+                    >
+                      Save Video
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div style={{ ...styles.sideInfoCard, marginTop: 18 }}>
@@ -2103,20 +2187,76 @@ export default function App() {
 
             <p style={{ ...styles.panelText, marginTop: 12 }}>
               This project combines visitor accounts, creator management, 3D mission monitoring, observation browsing,
-              research galleries, comments, and astronomy-inspired interface design.
+              research galleries, comments, creator YouTube control, live NASA update refresh, and astronomy-inspired interface design.
             </p>
 
             <p style={{ ...styles.panelText, marginTop: 12 }}>
-              The intro video has been removed to improve website speed and reduce loading delay.
+              The old PPTX system has been removed. The creator now controls a YouTube mission brief video for visitors.
             </p>
+          </div>
 
-            {adminMedia.pptxName ? (
-              <div style={{ marginTop: 18 }}>
-                <div style={styles.heroBadge}>Attached Presentation</div>
-                <div style={{ fontWeight: 700, marginTop: 8 }}>{adminMedia.pptxName}</div>
+          <div style={styles.sideInfoCard}>
+            <div style={styles.sectionTitleRow}>
+              <FileText size={18} color="#f6c05a" />
+              <h3 style={{ margin: 0 }}>{creatorVideo.title || "Mission Brief Video"}</h3>
+            </div>
+
+            {youtubeEmbedUrl ? (
+              <div style={{ marginTop: 16 }}>
+                <iframe
+                  width="100%"
+                  height="420"
+                  src={youtubeEmbedUrl}
+                  title="Mission Video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  style={{
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 20,
+                    background: "#000",
+                  }}
+                />
               </div>
             ) : (
-              <div style={styles.videoPlaceholder}>No presentation file attached yet.</div>
+              <div style={styles.videoPlaceholder}>No creator video uploaded.</div>
+            )}
+          </div>
+
+          <div style={styles.sideInfoCard}>
+            <div style={styles.sectionTitleRow}>
+              <Activity size={18} color="#7de8ff" />
+              <h3 style={{ margin: 0 }}>NASA Live Update (1 Minute Refresh)</h3>
+            </div>
+
+            {nasaLiveLoading ? (
+              <div style={styles.videoPlaceholder}>Loading NASA live data...</div>
+            ) : nasaData ? (
+              <>
+                {nasaData.media_type === "image" && nasaData.url ? (
+                  <img
+                    src={nasaData.url}
+                    alt={nasaData.title || "NASA Live"}
+                    style={{
+                      width: "100%",
+                      height: 300,
+                      objectFit: "cover",
+                      borderRadius: 20,
+                      marginTop: 16,
+                      border: "1px solid rgba(255,255,255,0.08)",
+                    }}
+                  />
+                ) : (
+                  <div style={styles.videoPlaceholder}>NASA returned non-image content for this update.</div>
+                )}
+
+                <h3 style={{ marginTop: 16, marginBottom: 10 }}>{nasaData.title || "NASA APOD"}</h3>
+                <div style={{ marginBottom: 10 }}>
+                  <span style={styles.muted}>Date:</span> {safeDateLabel(nasaData.date)}
+                </div>
+                <p style={styles.panelText}>{(nasaData.explanation || "").slice(0, 420)}...</p>
+              </>
+            ) : (
+              <div style={styles.videoPlaceholder}>NASA live data unavailable right now.</div>
             )}
           </div>
         </div>
@@ -2373,17 +2513,87 @@ export default function App() {
             </div>
 
             <p style={{ ...styles.panelText, marginTop: 12 }}>
-              Add your sound files inside <code>public/sounds/</code> with these names: planet.mp3, solar-wind.mp3,
-              jupiter.mp3, saturn.mp3, cosmic-event.mp3
+              Add your sound files inside <code>public/sounds/</code> with these names: black-hole.mp3, cosmic-horror.mp3,
+              deep-space-void.mp3, radio-scream.mp3, dark-pulse.mp3
             </p>
 
             <div style={styles.soundButtonGrid}>
-              <button style={styles.soundBtn} onClick={() => playSpaceSound("planet")}>Planet Sound</button>
-              <button style={styles.soundBtn} onClick={() => playSpaceSound("solar")}>Solar Wind</button>
-              <button style={styles.soundBtn} onClick={() => playSpaceSound("jupiter")}>Jupiter</button>
-              <button style={styles.soundBtn} onClick={() => playSpaceSound("saturn")}>Saturn</button>
-              <button style={styles.soundBtn} onClick={() => playSpaceSound("event")}>Space Event</button>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("void")}>Deep Space Void</button>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("horror")}>Cosmic Horror</button>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("hole")}>Black Hole</button>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("radio")}>Radio Scream</button>
+              <button style={styles.soundBtn} onClick={() => playSpaceSound("pulse")}>Dark Pulse</button>
             </div>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={panel === "universe"} title="3D Universe" onClose={() => setPanel(null)}>
+        <div style={{ display: "grid", gap: 18 }}>
+          <div style={styles.sideInfoCard}>
+            <div style={styles.sectionTitleRow}>
+              <Globe2 size={18} color="#7de8ff" />
+              <h3 style={{ margin: 0 }}>Universe Search</h3>
+            </div>
+
+            <input
+              placeholder="Search spacecraft..."
+              style={{ ...styles.searchInput, ...styles.universeInput }}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+
+            <div style={{ marginTop: 20 }}>
+              <a
+                href="https://eyes.nasa.gov/apps/orrery/"
+                target="_blank"
+                rel="noreferrer"
+                style={styles.linkBtn}
+              >
+                Open NASA 3D Universe
+              </a>
+            </div>
+
+            <p style={{ ...styles.panelText, marginTop: 16 }}>
+              Search idea: {searchTerm || "spacecraft"}.
+              Use the NASA 3D Universe link above to explore solar system objects, missions, and moving bodies.
+            </p>
+          </div>
+
+          <div style={styles.sideInfoCard}>
+            <div style={styles.sectionTitleRow}>
+              <Activity size={18} color="#f6c05a" />
+              <h3 style={{ margin: 0 }}>Live NASA Card</h3>
+            </div>
+
+            {nasaLiveLoading ? (
+              <div style={styles.videoPlaceholder}>Refreshing NASA live card...</div>
+            ) : nasaData ? (
+              <>
+                {nasaData.media_type === "image" && nasaData.url ? (
+                  <img
+                    src={nasaData.url}
+                    alt={nasaData.title || "NASA APOD"}
+                    style={{
+                      width: "100%",
+                      height: 280,
+                      objectFit: "cover",
+                      borderRadius: 20,
+                      marginTop: 16,
+                      border: "1px solid rgba(255,255,255,0.08)",
+                    }}
+                  />
+                ) : null}
+
+                <h3 style={{ marginTop: 16, marginBottom: 8 }}>{nasaData.title || "NASA APOD"}</h3>
+                <div style={{ marginBottom: 8 }}>
+                  <span style={styles.muted}>Updated:</span> {safeDateLabel(nasaData.date)}
+                </div>
+                <p style={styles.panelText}>{(nasaData.explanation || "").slice(0, 300)}...</p>
+              </>
+            ) : (
+              <div style={styles.videoPlaceholder}>No NASA live card available.</div>
+            )}
           </div>
         </div>
       </Modal>
@@ -3215,6 +3425,15 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#fff",
     fontSize: 15,
     minWidth: 0,
+  },
+  universeInput: {
+    width: "100%",
+    padding: "14px 16px",
+    borderRadius: 16,
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(255,255,255,0.05)",
+    marginTop: 16,
+    boxSizing: "border-box",
   },
   selectInput: {
     width: "100%",
