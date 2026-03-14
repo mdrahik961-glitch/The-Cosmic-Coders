@@ -1,3 +1,5 @@
+import { addDoc, collection, onSnapshot, orderBy, query, serverTimestamp } from "firebase/firestore";
+import { db } from "./lib/firebase";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Stars, useGLTF } from "@react-three/drei";
@@ -81,6 +83,7 @@ type CommentItem = {
   userImage?: string;
   text: string;
   time: string;
+  createdAt?: any;
 };
 
 type VisitorLogItem = {
@@ -818,7 +821,7 @@ export default function App() {
   const [nasaData, setNasaData] = useState<NasaLiveData | null>(null);
   const [nasaLiveLoading, setNasaLiveLoading] = useState(false);
 
-  const [comments, setComments] = useLocalStorageState<CommentItem[]>("cosmic-comments", []);
+  const [comments, setComments] = useState<CommentItem[]>([]);
   const [visitorAccounts, setVisitorAccounts] = useLocalStorageState<VisitorAccount[]>("cosmic-visitor-accounts", []);
   const [visitorLogs, setVisitorLogs] = useLocalStorageState<VisitorLogItem[]>("cosmic-visitor-logs", []);
   const [activeVisitorId, setActiveVisitorId] = useLocalStorageState<string | null>("cosmic-active-visitor-id", null);
@@ -854,6 +857,28 @@ export default function App() {
       image: "/creators/creator-3.jpg",
     },
   ]);
+useEffect(() => {
+  const q = query(collection(db, "comments"), orderBy("createdAt", "desc"));
+
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const items: CommentItem[] = snapshot.docs.map((doc) => {
+      const data = doc.data() as any;
+      return {
+        id: doc.id,
+        userEmail: data.userEmail || "",
+        userName: data.userName || "Anonymous",
+        userImage: data.userImage || "",
+        text: data.text || "",
+        time: data.time || "",
+        createdAt: data.createdAt,
+      };
+    });
+
+    setComments(items);
+  });
+
+  return () => unsubscribe();
+}, []);
 
   const filteredObservationItems = useMemo(() => {
     let items = observationDeckItems;
@@ -1283,17 +1308,27 @@ export default function App() {
     }
   };
 
-  const addComment = () => {
-    if (!commentDraft.trim() || !loggedInVisitor) return;
+const addComment = async () => {
+  if (!commentDraft.trim() || !loggedInVisitor) return;
 
-    const next: CommentItem = {
-      id: `${Date.now()}`,
+  try {
+    await addDoc(collection(db, "comments"), {
       userEmail: loggedInVisitor.email,
       userName: loggedInVisitor.name,
-      userImage: loggedInVisitor.profileImage,
+      userImage: loggedInVisitor.profileImage || "",
       text: commentDraft.trim(),
       time: new Date().toLocaleString(),
-    };
+      createdAt: serverTimestamp(),
+    });
+
+    setCommentDraft("");
+    addVisitorLog(loggedInVisitor, "Visitor added a comment");
+    speakInfo("Comment added.");
+  } catch (error) {
+    console.error("Failed to add comment:", error);
+    speakInfo("Comment upload failed.");
+  }
+};
 
     setComments((prev) => [next, ...prev]);
     setCommentDraft("");
