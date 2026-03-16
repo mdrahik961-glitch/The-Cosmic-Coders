@@ -128,7 +128,6 @@ type SearchItem = {
   date: string;
   image?: string;
   source?: string;
-  sourceLink?: string;
 };
 
 type ObservationItem = {
@@ -823,7 +822,6 @@ export default function App() {
   const [commentDraft, setCommentDraft] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
   const [missionResearchOpen, setMissionResearchOpen] = useState<MissionType | null>(null);
-  const [showUniverseEmbed, setShowUniverseEmbed] = useState(false);
 
   const [creatorVideo, setCreatorVideo] = useLocalStorageState("cosmic-creator-video", {
     title: "Mission Brief Video",
@@ -1035,16 +1033,13 @@ useEffect(() => {
         const res = await fetch("https://images-api.nasa.gov/search?q=astronomy&media_type=image");
         const data = await res.json();
 
-        const items = (data?.collection?.items || []).slice(0, 24).map((item: any, index: number) => ({
+        const items = (data?.collection?.items || []).slice(0, 6).map((item: any, index: number) => ({
           id: item?.data?.[0]?.nasa_id || `feed-${index}`,
           title: item?.data?.[0]?.title || "NASA Item",
           description: item?.data?.[0]?.description || "Astronomy content available.",
           date: item?.data?.[0]?.date_created || "",
           image: item?.links?.[0]?.href,
           source: "NASA Image Library",
-          sourceLink: item?.data?.[0]?.nasa_id
-            ? `https://images.nasa.gov/details/${item.data[0].nasa_id}`
-            : item?.href || "",
         }));
 
         setResearchFeed(items);
@@ -1065,16 +1060,13 @@ useEffect(() => {
         const res = await fetch(`https://images-api.nasa.gov/search?q=${encodeURIComponent(searchTerm)}&media_type=image`);
         const data = await res.json();
 
-        const items = (data?.collection?.items || []).slice(0, 24).map((item: any, index: number) => ({
+        const items = (data?.collection?.items || []).slice(0, 6).map((item: any, index: number) => ({
           id: item?.data?.[0]?.nasa_id || `nasa-${index}`,
           title: item?.data?.[0]?.title || "Untitled",
           description: item?.data?.[0]?.description || "No description available.",
           date: item?.data?.[0]?.date_created || "",
           image: item?.links?.[0]?.href,
           source: "NASA Image Library",
-          sourceLink: item?.data?.[0]?.nasa_id
-            ? `https://images.nasa.gov/details/${item.data[0].nasa_id}`
-            : item?.href || "",
         }));
 
         setSearchResults(items);
@@ -2604,19 +2596,6 @@ const logoutAll = () => {
                     <h4 style={{ margin: 0, fontSize: 18 }}>{item.title}</h4>
                     <p style={{ ...styles.panelText, marginTop: 10 }}>{item.description}</p>
                     <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{safeDateLabel(item.date)}</div>
-
-                    {item.sourceLink && (
-                      <div style={{ marginTop: 14 }}>
-                        <a
-                          href={item.sourceLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={styles.linkBtn}
-                        >
-                          More About It
-                        </a>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
@@ -2639,19 +2618,6 @@ const logoutAll = () => {
                     <h4 style={{ margin: 0, fontSize: 18 }}>{item.title}</h4>
                     <p style={{ ...styles.panelText, marginTop: 10 }}>{item.description}</p>
                     <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{item.source}</div>
-
-                    {item.sourceLink && (
-                      <div style={{ marginTop: 14 }}>
-                        <a
-                          href={item.sourceLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={styles.linkBtn}
-                        >
-                          More About It
-                        </a>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
@@ -2700,12 +2666,14 @@ const logoutAll = () => {
             />
 
             <div style={{ marginTop: 20 }}>
-              <button
-                style={{ ...styles.linkBtn, border: "none", cursor: "pointer" }}
-                onClick={() => setShowUniverseEmbed(true)}
+              <a
+                href="https://eyes.nasa.gov/apps/orrery/"
+                target="_blank"
+                rel="noreferrer"
+                style={styles.linkBtn}
               >
                 Open NASA 3D Universe
-              </button>
+              </a>
             </div>
 
             <p style={{ ...styles.panelText, marginTop: 16 }}>
@@ -2752,72 +2720,12 @@ const logoutAll = () => {
         </div>
       </Modal>
 
-      {showUniverseEmbed && (
-        <div style={styles.universeOverlay}>
-          <button
-            style={styles.universeCloseBtn}
-            onClick={() => setShowUniverseEmbed(false)}
-            title="Close"
-          >
-            ?
-          </button>
-
-          <iframe
-            src="https://eyes.nasa.gov/apps/orrery/"
-            title="NASA 3D Universe"
-            style={styles.universeFrame}
-            allowFullScreen
-          />
-
-          <div style={styles.universeFallbackBar}>
-            If the NASA page does not load here, your browser may be blocking embedded content.
-            <a
-              href="https://eyes.nasa.gov/apps/orrery/"
-              target="_blank"
-              rel="noreferrer"
-              style={{ ...styles.linkBtn, marginLeft: 12 }}
-            >
-              Open in New Tab
-            </a>
-          </div>
-        </div>
-      )}
       <MissionResearchGalleryModal
         type="voyager"
         open={missionResearchOpen === "voyager"}
         onClose={() => setMissionResearchOpen(null)}
       />
 
-      {showUniverseEmbed && (
-        <div style={styles.universeOverlay}>
-          <button
-            style={styles.universeCloseBtn}
-            onClick={() => setShowUniverseEmbed(false)}
-            title="Close"
-          >
-            ?
-          </button>
-
-          <iframe
-            src="https://eyes.nasa.gov/apps/orrery/"
-            title="NASA 3D Universe"
-            style={styles.universeFrame}
-            allowFullScreen
-          />
-
-          <div style={styles.universeFallbackBar}>
-            If the NASA page does not load here, your browser may be blocking embedded content.
-            <a
-              href="https://eyes.nasa.gov/apps/orrery/"
-              target="_blank"
-              rel="noreferrer"
-              style={{ ...styles.linkBtn, marginLeft: 12 }}
-            >
-              Open in New Tab
-            </a>
-          </div>
-        </div>
-      )}
       <MissionResearchGalleryModal
         type="hubble"
         open={missionResearchOpen === "hubble"}
@@ -3880,55 +3788,8 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 10,
     marginTop: 12,
-  },  universeOverlay: {
-    position: "fixed",
-    inset: 0,
-    zIndex: 999,
-    background: "rgba(0,0,0,0.92)",
-    display: "flex",
-    flexDirection: "column",
   },
-  universeFrame: {
-    width: "100%",
-    height: "100%",
-    border: "none",
-    background: "#000",
-  },
-  universeCloseBtn: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    zIndex: 1000,
-    width: 54,
-    height: 54,
-    borderRadius: "50%",
-    border: "1px solid rgba(255,255,255,0.2)",
-    background: "rgba(255,255,255,0.08)",
-    color: "#fff",
-    fontSize: 28,
-    cursor: "pointer",
-    backdropFilter: "blur(8px)",
-  },
-  universeFallbackBar: {
-    position: "absolute",
-    left: 16,
-    bottom: 16,
-    zIndex: 1000,
-    display: "flex",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 10,
-    padding: "12px 16px",
-    borderRadius: 16,
-    background: "rgba(0,0,0,0.55)",
-    color: "#fff",
-    border: "1px solid rgba(255,255,255,0.12)",
-  },};
-
-
-
-
-
+};
 
 
 

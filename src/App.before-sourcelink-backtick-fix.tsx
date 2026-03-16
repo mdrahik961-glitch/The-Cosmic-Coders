@@ -1043,7 +1043,7 @@ useEffect(() => {
           image: item?.links?.[0]?.href,
           source: "NASA Image Library",
           sourceLink: item?.data?.[0]?.nasa_id
-            ? `https://images.nasa.gov/details/${item.data[0].nasa_id}`
+            ? https://images.nasa.gov/details/${item.data[0].nasa_id}
             : item?.href || "",
         }));
 
@@ -1073,7 +1073,7 @@ useEffect(() => {
           image: item?.links?.[0]?.href,
           source: "NASA Image Library",
           sourceLink: item?.data?.[0]?.nasa_id
-            ? `https://images.nasa.gov/details/${item.data[0].nasa_id}`
+            ? https://images.nasa.gov/details/${item.data[0].nasa_id}
             : item?.href || "",
         }));
 
@@ -3924,8 +3924,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#fff",
     border: "1px solid rgba(255,255,255,0.12)",
   },};
-
-
 
 
 
