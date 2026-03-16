@@ -1225,39 +1225,42 @@ useEffect(() => {
   };
 
   const handleVisitorSignup = async () => {
-    const { name, email, phone, dob, password } = visitorAuth;
+  const { name, email, phone, dob, password } = visitorAuth;
 
-    if (!name || !email || !phone || !dob || !password) {
-      speakInfo("Please complete all visitor sign up fields.");
-      return;
-    }
+  if (!name || !email || !phone || !dob || !password) {
+    speakInfo("Please complete all visitor sign up fields.");
+    return;
+  }
 
-    if (!isValidGmail(email)) {
-      speakInfo("Only full Gmail addresses are allowed for sign up.");
-      return;
-    }
+  if (!isValidGmail(email)) {
+    speakInfo("Only full Gmail addresses are allowed for sign up.");
+    return;
+  }
 
-    if (!isValidBdPhone(phone)) {
-      speakInfo("Phone number must be exactly 11 digits and start with 01.");
-      return;
-    }
+  if (!isValidBdPhone(phone)) {
+    speakInfo("Phone number must be exactly 11 digits and start with 01.");
+    return;
+  }
 
-    if (!isValidDob(dob)) {
-      speakInfo("Please enter a valid date of birth with a four digit year.");
-      return;
-    }
+  if (!isValidDob(dob)) {
+    speakInfo("Please enter a valid date of birth with a four digit year.");
+    return;
+  }
 
-    const exists = visitorAccounts.some(
-      (item) => item.email.trim().toLowerCase() === email.trim().toLowerCase()
-    );
+  const exists = visitorAccounts.some(
+    (item) => item.email.trim().toLowerCase() === email.trim().toLowerCase()
+  );
 
-    if (exists) {
-      speakInfo("This email already has an account. Please use log in.");
-      return;
-    }
+  if (exists) {
+    speakInfo("This email already has an account. Please use log in.");
+    return;
+  }
+
+  try {
+    const accountRef = doc(collection(db, "visitorAccounts"));
 
     const account: VisitorAccount = {
-      id: `${Date.now()}`,
+      id: accountRef.id,
       name,
       email: email.trim().toLowerCase(),
       phone,
@@ -1267,43 +1270,24 @@ useEffect(() => {
       createdAt: new Date().toISOString(),
     };
 
-try {
-  const accountRef = doc(collection(db, "visitorAccounts"));
+    await setDoc(accountRef, account);
 
-  const account: VisitorAccount = {
-    id: accountRef.id,
-    name,
-    email: email.trim().toLowerCase(),
-    phone,
-    dob,
-    password,
-    profileImage: "",
-    createdAt: new Date().toISOString(),
-  };
-
-  await setDoc(accountRef, account);
-
-  setLoggedInVisitor(account);
-  setActiveVisitorId(account.id);
-  await addVisitorLog(account, "Visitor signed up and entered website");
-
-  if (!birthdayMemory) {
-    await loadBirthdayMemory(dob);
-  }
-
-  setScreen("intro");
-} catch (error) {
-  console.error(error);
-  speakInfo("Visitor account creation failed.");
-}
+    setLoggedInVisitor(account);
+    setActiveVisitorId(account.id);
+    await addVisitorLog(account, "Visitor signed up and entered website");
 
     if (!birthdayMemory) {
       await loadBirthdayMemory(dob);
     }
-    setScreen("intro");
-  };
 
-  const handleVisitorLogin = async () => {
+    setScreen("intro");
+  } catch (error) {
+    console.error(error);
+    speakInfo("Visitor account creation failed.");
+  }
+};
+
+const handleVisitorLogin = async () => {
     const { email, password } = visitorAuth;
 
     if (!email || !password) {
@@ -1356,46 +1340,55 @@ const account = snap.docs
     speakInfo("Creator login failed.");
   };
 
-  const handleVisitorProfileSave = () => {
-    if (!loggedInVisitor) return;
+  const handleVisitorProfileSave = async () => {
+  if (!loggedInVisitor) return;
 
-    if (!isValidBdPhone(loggedInVisitor.phone)) {
-      speakInfo("Phone number must be exactly 11 digits.");
-      return;
-    }
+  if (!isValidBdPhone(loggedInVisitor.phone)) {
+    speakInfo("Phone number must be exactly 11 digits.");
+    return;
+  }
 
-    if (!isValidDob(loggedInVisitor.dob)) {
-      speakInfo("Date of birth year must be four digits.");
-      return;
-    }
+  if (!isValidDob(loggedInVisitor.dob)) {
+    speakInfo("Date of birth year must be four digits.");
+    return;
+  }
 
-try {
-  await setDoc(doc(db, "visitorAccounts", loggedInVisitor.id), loggedInVisitor);
-  setLoggedInVisitor(loggedInVisitor);
-  setActiveVisitorId(loggedInVisitor.id);
-  await addVisitorLog(loggedInVisitor, "Visitor updated account profile");
-  setProfileMessage("Profile updated and saved.");
-  speakInfo("Profile updated and saved.");
-} catch (error) {
-  console.error(error);
-  setProfileMessage("Profile update failed.");
-  speakInfo("Profile update failed.");
-}
+  try {
+    await setDoc(doc(db, "visitorAccounts", loggedInVisitor.id), loggedInVisitor);
+    setLoggedInVisitor(loggedInVisitor);
+    setActiveVisitorId(loggedInVisitor.id);
+    await addVisitorLog(loggedInVisitor, "Visitor updated account profile");
+    setProfileMessage("Profile updated and saved.");
+    speakInfo("Profile updated and saved.");
+  } catch (error) {
+    console.error(error);
+    setProfileMessage("Profile update failed.");
+    speakInfo("Profile update failed.");
+  }
+};
 
-  const handleVisitorPhotoUpload = async (file: File | null) => {
-    if (!file || !loggedInVisitor) return;
-    try {
-      const url = await resizeImageFile(file, 500, 0.7);
-      const updatedVisitor = { ...loggedInVisitor, profileImage: url };
+const handleVisitorPhotoUpload = async (file: File | null) => {
+  if (!file || !loggedInVisitor) return;
 
-await setDoc(doc(db, "visitorAccounts", updatedVisitor.id), updatedVisitor);
+  try {
+    const url = await resizeImageFile(file, 500, 0.7);
+    const updatedVisitor = { ...loggedInVisitor, profileImage: url };
 
-setLoggedInVisitor(updatedVisitor);
-setActiveVisitorId(updatedVisitor.id);
+    await setDoc(doc(db, "visitorAccounts", updatedVisitor.id), updatedVisitor);
 
-await addVisitorLog(updatedVisitor, "Visitor updated profile photo");
-setProfileMessage("Profile photo saved for future login.");
-speakInfo("Profile photo saved for future login.");
+    setLoggedInVisitor(updatedVisitor);
+    setActiveVisitorId(updatedVisitor.id);
+
+    await addVisitorLog(updatedVisitor, "Visitor updated profile photo");
+    setProfileMessage("Profile photo saved for future login.");
+    speakInfo("Profile photo saved for future login.");
+  } catch (error) {
+    console.error(error);
+    setProfileMessage("Image upload failed.");
+    speakInfo("Image upload failed.");
+  }
+};
+
 const handleCreatorPhotoUpload = async (file: File | null) => {
   if (!file) return;
 
@@ -1416,6 +1409,7 @@ const handleCreatorPhotoUpload = async (file: File | null) => {
     speakInfo("Creator photo upload failed.");
   }
 };
+
 const addComment = async () => {
   if (!commentDraft.trim() || !loggedInVisitor) return;
 
@@ -1438,7 +1432,7 @@ const addComment = async () => {
   }
 };
 
-  const logoutAll = () => {
+const logoutAll = () => {
     stop();
     setLoggedInVisitor(null);
     setActiveVisitorId(null);
@@ -3805,4 +3799,5 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 12,
   },
 };
+
 

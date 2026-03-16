@@ -1,9 +1,19 @@
-﻿import { addDoc, collection, onSnapshot, orderBy, query, serverTimestamp } from "firebase/firestore";
-import { db } from "./lib/firebase";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { db } from "./lib/firebase";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Stars, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  serverTimestamp,
+  doc,
+  setDoc,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
 import {
   Activity,
   AudioLines,
@@ -314,7 +324,7 @@ const missionGallery: Record<MissionType, Array<{ title: string; image: string; 
     title,
     image,
     date,
-    detail: `Hubble research archive item ${index + 1}. This entry highlights a major observation, servicing milestone, or discovery from Hubbleâ€™s science history.`,
+    detail: `Hubble research archive item ${index + 1}. This entry highlights a major observation, servicing milestone, or discovery from Hubble’s science history.`,
   })),
 };
 
@@ -520,7 +530,7 @@ function MissionViewer({ type }: { type: MissionType }) {
         <SpaceProbe type={type} />
         <OrbitControls enableZoom minDistance={3} maxDistance={10} enablePan={false} />
       </Canvas>
-      <div style={styles.viewerLabel}>{missionInfo[type].label} Â· 3D rotating view</div>
+      <div style={styles.viewerLabel}>{missionInfo[type].label} · 3D rotating view</div>
     </div>
   );
 }
@@ -588,7 +598,7 @@ function Modal({
         <div style={styles.modalHeader}>
           <h2 style={{ margin: 0 }}>{title}</h2>
           <button style={styles.closeBtn} onClick={onClose}>
-            âœ•
+            ✕
           </button>
         </div>
         {children}
@@ -716,7 +726,7 @@ function MissionCard({
         <div style={styles.statsGrid}>
           <StatCard title="BATTERY" value={`${telemetry.battery}%`} icon={<BatteryCharging size={16} color="#47e5bc" />} />
           <StatCard title="SIGNAL" value={`${telemetry.signal}%`} icon={<Radio size={16} color="#61dafb" />} />
-          <StatCard title="TEMPERATURE" value={`${telemetry.temp}Â°C`} icon={<Thermometer size={16} color="#f5d742" />} />
+          <StatCard title="TEMPERATURE" value={`${telemetry.temp}°C`} icon={<Thermometer size={16} color="#f5d742" />} />
           <StatCard title="PACKETS" value={`${telemetry.packets}`} icon={<Activity size={16} color="#e7a7ff" />} />
           <StatCard title="VELOCITY" value={`${telemetry.velocity} km/s`} icon={<Rocket size={16} color="#c8b6ff" />} />
           <StatCard
@@ -822,14 +832,14 @@ export default function App() {
   const [nasaLiveLoading, setNasaLiveLoading] = useState(false);
 
   const [comments, setComments] = useState<CommentItem[]>([]);
-  const [visitorAccounts, setVisitorAccounts] = useLocalStorageState<VisitorAccount[]>("cosmic-visitor-accounts", []);
-  const [visitorLogs, setVisitorLogs] = useLocalStorageState<VisitorLogItem[]>("cosmic-visitor-logs", []);
-  const [activeVisitorId, setActiveVisitorId] = useLocalStorageState<string | null>("cosmic-active-visitor-id", null);
+const [visitorAccounts, setVisitorAccounts] = useState<VisitorAccount[]>([]);
+const [visitorLogs, setVisitorLogs] = useState<VisitorLogItem[]>([]);
+const [activeVisitorId, setActiveVisitorId] = useLocalStorageState<string | null>("cosmic-active-visitor-id", null);
 
-  const [creatorAccount, setCreatorAccount] = useLocalStorageState<CreatorAccount>("cosmic-creator-account", {
-    email: ADMIN_EMAIL,
-    image: "",
-  });
+  const [creatorAccount, setCreatorAccount] = useState<CreatorAccount>({
+  email: ADMIN_EMAIL,
+  image: "",
+});
 
   const [creatorProfiles, setCreatorProfiles] = useLocalStorageState<CreatorProfile[]>("cosmic-creator-profiles", [
     {
@@ -858,53 +868,61 @@ export default function App() {
     },
   ]);
 useEffect(() => {
-  const q = query(collection(db, "comments"), orderBy("createdAt", "desc"));
-
-  const unsubscribe = onSnapshot(q, (snapshot) => {
-    const items: CommentItem[] = snapshot.docs.map((doc) => {
-      const data = doc.data() as any;
+  const unsubscribe = onSnapshot(collection(db, "visitorAccounts"), (snapshot) => {
+    const items: VisitorAccount[] = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data() as any;
       return {
-        id: doc.id,
-        userEmail: data.userEmail || "",
-        userName: data.userName || "Anonymous",
-        userImage: data.userImage || "",
-        text: data.text || "",
-        time: data.time || "",
-        createdAt: data.createdAt,
+        id: docSnap.id,
+        name: data.name || "",
+        email: (data.email || "").trim().toLowerCase(),
+        phone: data.phone || "",
+        dob: data.dob || "",
+        password: data.password || "",
+        profileImage: data.profileImage || "",
+        createdAt: data.createdAt || "",
       };
     });
 
-    setComments(items);
+    setVisitorAccounts(items);
   });
 
   return () => unsubscribe();
-}, []);  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "comments"), (snapshot) => {
-      const items: CommentItem[] = snapshot.docs
-        .map((doc) => {
-          const data = doc.data() as any;
-          return {
-            id: doc.id,
-            userEmail: data.userEmail || "",
-            userName: data.userName || "Anonymous",
-            userImage: data.userImage || "",
-            text: data.text || "",
-            time: data.time || "",
-            createdAt: data.createdAt || null,
-          };
-        })
-        .sort((a, b) => {
-          const aSec = a.createdAt?.seconds || 0;
-          const bSec = b.createdAt?.seconds || 0;
-          return bSec - aSec;
-        });
+}, []);
 
-      setComments(items);
-    });
+useEffect(() => {
+  const unsubscribe = onSnapshot(collection(db, "visitorLogs"), (snapshot) => {
+    const items: VisitorLogItem[] = snapshot.docs
+      .map((docSnap) => {
+        const data = docSnap.data() as any;
+        return {
+          id: docSnap.id,
+          visitorEmail: data.visitorEmail || "",
+          visitorName: data.visitorName || "",
+          action: data.action || "",
+          time: data.time || "",
+        };
+      })
+      .sort((a, b) => (a.time < b.time ? 1 : -1));
 
-    return () => unsubscribe();
-  }, []);
+    setVisitorLogs(items);
+  });
 
+  return () => unsubscribe();
+}, []);
+
+useEffect(() => {
+  const unsubscribe = onSnapshot(doc(db, "settings", "creatorProfile"), (snap) => {
+    if (snap.exists()) {
+      const data = snap.data() as any;
+      setCreatorAccount({
+        email: data.email || ADMIN_EMAIL,
+        image: data.image || "",
+      });
+    }
+  });
+
+  return () => unsubscribe();
+}, []);
 
   const filteredObservationItems = useMemo(() => {
     let items = observationDeckItems;
@@ -938,27 +956,47 @@ useEffect(() => {
     [speak]
   );
 
-  const addVisitorLog = useCallback(
-    (account: VisitorAccount, action: string) => {
-      setVisitorLogs((prev) => [
-        {
-          id: `${Date.now()}-${Math.random()}`,
-          visitorEmail: account.email,
-          visitorName: account.name,
-          action,
-          time: new Date().toLocaleString(),
-        },
-        ...prev,
-      ]);
-    },
-    [setVisitorLogs]
-  );
+const addVisitorLog = useCallback(async (account: VisitorAccount, action: string) => {
+  try {
+    await addDoc(collection(db, "visitorLogs"), {
+      visitorEmail: account.email,
+      visitorName: account.name,
+      action,
+      time: new Date().toLocaleString(),
+      createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Failed to add visitor log:", error);
+  }
+}, []);
 
-  useEffect(() => {
-    if (!activeVisitorId) return;
-    const found = visitorAccounts.find((item) => item.id === activeVisitorId);
-    if (found) setLoggedInVisitor(found);
-  }, [activeVisitorId, visitorAccounts]);
+useEffect(() => {
+  const unsubscribe = onSnapshot(collection(db, "comments"), (snapshot) => {
+    const items: CommentItem[] = snapshot.docs
+      .map((doc) => {
+        const data = doc.data() as any;
+        return {
+          id: doc.id,
+          userEmail: (data.userEmail || "").trim(),
+          userName: (data.userName || data.user || data.name || "").trim(),
+          userImage: data.userImage || "",
+          text: (data.text || "").trim(),
+          time: data.time || "",
+          createdAt: data.createdAt || null,
+        };
+      })
+      .filter((item) => item.text && item.userName)
+      .sort((a, b) => {
+        const aSec = a.createdAt?.seconds || 0;
+        const bSec = b.createdAt?.seconds || 0;
+        return bSec - aSec;
+      });
+
+    setComments(items);
+  });
+
+  return () => unsubscribe();
+}, []);
 
   useEffect(() => {
     if (screen !== "intro") return;
@@ -1178,39 +1216,42 @@ useEffect(() => {
   };
 
   const handleVisitorSignup = async () => {
-    const { name, email, phone, dob, password } = visitorAuth;
+  const { name, email, phone, dob, password } = visitorAuth;
 
-    if (!name || !email || !phone || !dob || !password) {
-      speakInfo("Please complete all visitor sign up fields.");
-      return;
-    }
+  if (!name || !email || !phone || !dob || !password) {
+    speakInfo("Please complete all visitor sign up fields.");
+    return;
+  }
 
-    if (!isValidGmail(email)) {
-      speakInfo("Only full Gmail addresses are allowed for sign up.");
-      return;
-    }
+  if (!isValidGmail(email)) {
+    speakInfo("Only full Gmail addresses are allowed for sign up.");
+    return;
+  }
 
-    if (!isValidBdPhone(phone)) {
-      speakInfo("Phone number must be exactly 11 digits and start with 01.");
-      return;
-    }
+  if (!isValidBdPhone(phone)) {
+    speakInfo("Phone number must be exactly 11 digits and start with 01.");
+    return;
+  }
 
-    if (!isValidDob(dob)) {
-      speakInfo("Please enter a valid date of birth with a four digit year.");
-      return;
-    }
+  if (!isValidDob(dob)) {
+    speakInfo("Please enter a valid date of birth with a four digit year.");
+    return;
+  }
 
-    const exists = visitorAccounts.some(
-      (item) => item.email.trim().toLowerCase() === email.trim().toLowerCase()
-    );
+  const exists = visitorAccounts.some(
+    (item) => item.email.trim().toLowerCase() === email.trim().toLowerCase()
+  );
 
-    if (exists) {
-      speakInfo("This email already has an account. Please use log in.");
-      return;
-    }
+  if (exists) {
+    speakInfo("This email already has an account. Please use log in.");
+    return;
+  }
+
+  try {
+    const accountRef = doc(collection(db, "visitorAccounts"));
 
     const account: VisitorAccount = {
-      id: `${Date.now()}`,
+      id: accountRef.id,
       name,
       email: email.trim().toLowerCase(),
       phone,
@@ -1220,18 +1261,24 @@ useEffect(() => {
       createdAt: new Date().toISOString(),
     };
 
-    setVisitorAccounts((prev) => [...prev, account]);
+    await setDoc(accountRef, account);
+
     setLoggedInVisitor(account);
     setActiveVisitorId(account.id);
-    addVisitorLog(account, "Visitor signed up and entered website");
+    await addVisitorLog(account, "Visitor signed up and entered website");
 
     if (!birthdayMemory) {
       await loadBirthdayMemory(dob);
     }
-    setScreen("intro");
-  };
 
-  const handleVisitorLogin = async () => {
+    setScreen("intro");
+  } catch (error) {
+    console.error(error);
+    speakInfo("Visitor account creation failed.");
+  }
+};
+
+const handleVisitorLogin = async () => {
     const { email, password } = visitorAuth;
 
     if (!email || !password) {
@@ -1244,11 +1291,16 @@ useEffect(() => {
       return;
     }
 
-    const account = visitorAccounts.find(
-      (item) =>
-        item.email.trim().toLowerCase() === email.trim().toLowerCase() &&
-        item.password === password
-    );
+const q = query(
+  collection(db, "visitorAccounts"),
+  where("email", "==", email.trim().toLowerCase())
+);
+
+const snap = await getDocs(q);
+
+const account = snap.docs
+  .map((d) => ({ id: d.id, ...(d.data() as any) }))
+  .find((item: any) => item.password === password) as VisitorAccount | undefined;
 
     if (!account) {
       speakInfo("Visitor login failed. Please check your email and password.");
@@ -1279,60 +1331,75 @@ useEffect(() => {
     speakInfo("Creator login failed.");
   };
 
-  const handleVisitorProfileSave = () => {
-    if (!loggedInVisitor) return;
+  const handleVisitorProfileSave = async () => {
+  if (!loggedInVisitor) return;
 
-    if (!isValidBdPhone(loggedInVisitor.phone)) {
-      speakInfo("Phone number must be exactly 11 digits.");
-      return;
-    }
+  if (!isValidBdPhone(loggedInVisitor.phone)) {
+    speakInfo("Phone number must be exactly 11 digits.");
+    return;
+  }
 
-    if (!isValidDob(loggedInVisitor.dob)) {
-      speakInfo("Date of birth year must be four digits.");
-      return;
-    }
+  if (!isValidDob(loggedInVisitor.dob)) {
+    speakInfo("Date of birth year must be four digits.");
+    return;
+  }
 
-    const updatedAccounts = visitorAccounts.map((item) =>
-      item.id === loggedInVisitor.id ? loggedInVisitor : item
-    );
-
-    setVisitorAccounts(updatedAccounts);
+  try {
+    await setDoc(doc(db, "visitorAccounts", loggedInVisitor.id), loggedInVisitor);
     setLoggedInVisitor(loggedInVisitor);
     setActiveVisitorId(loggedInVisitor.id);
-    addVisitorLog(loggedInVisitor, "Visitor updated account profile");
+    await addVisitorLog(loggedInVisitor, "Visitor updated account profile");
     setProfileMessage("Profile updated and saved.");
     speakInfo("Profile updated and saved.");
-  };
+  } catch (error) {
+    console.error(error);
+    setProfileMessage("Profile update failed.");
+    speakInfo("Profile update failed.");
+  }
+};
 
-  const handleVisitorPhotoUpload = async (file: File | null) => {
-    if (!file || !loggedInVisitor) return;
-    try {
-      const url = await resizeImageFile(file, 500, 0.7);
-      const updatedVisitor = { ...loggedInVisitor, profileImage: url };
+const handleVisitorPhotoUpload = async (file: File | null) => {
+  if (!file || !loggedInVisitor) return;
 
-      setLoggedInVisitor(updatedVisitor);
-      setVisitorAccounts((prev) => prev.map((item) => (item.id === updatedVisitor.id ? updatedVisitor : item)));
-      setActiveVisitorId(updatedVisitor.id);
+  try {
+    const url = await resizeImageFile(file, 500, 0.7);
+    const updatedVisitor = { ...loggedInVisitor, profileImage: url };
 
-      addVisitorLog(updatedVisitor, "Visitor updated profile photo");
-      setProfileMessage("Profile photo saved for future login.");
-      speakInfo("Profile photo saved for future login.");
-    } catch {
-      setProfileMessage("Image upload failed.");
-      speakInfo("Image upload failed.");
-    }
-  };
+    await setDoc(doc(db, "visitorAccounts", updatedVisitor.id), updatedVisitor);
 
-  const handleCreatorPhotoUpload = async (file: File | null) => {
-    if (!file) return;
-    try {
-      const url = await resizeImageFile(file, 500, 0.7);
-      setCreatorAccount((prev) => ({ ...prev, image: url }));
-      speakInfo("Creator photo updated.");
-    } catch {
-      speakInfo("Creator photo upload failed.");
-    }
-  };
+    setLoggedInVisitor(updatedVisitor);
+    setActiveVisitorId(updatedVisitor.id);
+
+    await addVisitorLog(updatedVisitor, "Visitor updated profile photo");
+    setProfileMessage("Profile photo saved for future login.");
+    speakInfo("Profile photo saved for future login.");
+  } catch (error) {
+    console.error(error);
+    setProfileMessage("Image upload failed.");
+    speakInfo("Image upload failed.");
+  }
+};
+
+const handleCreatorPhotoUpload = async (file: File | null) => {
+  if (!file) return;
+
+  try {
+    const url = await resizeImageFile(file, 500, 0.7);
+
+    const next = {
+      email: ADMIN_EMAIL,
+      image: url,
+    };
+
+    await setDoc(doc(db, "settings", "creatorProfile"), next);
+
+    setCreatorAccount(next);
+    speakInfo("Creator photo updated.");
+  } catch (error) {
+    console.error(error);
+    speakInfo("Creator photo upload failed.");
+  }
+};
 
 const addComment = async () => {
   if (!commentDraft.trim() || !loggedInVisitor) return;
@@ -1351,18 +1418,12 @@ const addComment = async () => {
     addVisitorLog(loggedInVisitor, "Visitor added a comment");
     speakInfo("Comment added.");
   } catch (error) {
-    console.error("Failed to add comment:", error);
-    speakInfo("Comment upload failed.");
+    console.error(error);
+    speakInfo("Comment save failed.");
   }
 };
 
-    setComments((prev) => [next, ...prev]);
-    setCommentDraft("");
-    addVisitorLog(loggedInVisitor, "Visitor added a comment");
-    speakInfo("Comment added.");
-  };
-
-  const logoutAll = () => {
+const logoutAll = () => {
     stop();
     setLoggedInVisitor(null);
     setActiveVisitorId(null);
@@ -1438,7 +1499,7 @@ const addComment = async () => {
               mission simulation, and saved profile photos.
             </p>
             <button style={styles.welcomeHeroBtn} onClick={() => setScreen("roleSelect")}>
-              Continue <span style={{ fontSize: 18 }}>â†’</span>
+              Continue <span style={{ fontSize: 18 }}>→</span>
             </button>
           </div>
         </div>
@@ -3729,4 +3790,6 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 12,
   },
 };
+
+
 
