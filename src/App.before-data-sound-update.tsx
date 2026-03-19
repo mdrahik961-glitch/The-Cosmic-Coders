@@ -128,7 +128,6 @@ type SearchItem = {
   date: string;
   image?: string;
   source?: string;
-  sourceLink?: string;
 };
 
 type ObservationItem = {
@@ -418,14 +417,6 @@ function safeDateLabel(date?: string) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return "Unknown";
   return d.toLocaleDateString();
-}
-
-function buildNasaDetailsLink(nasaId?: string, title?: string) {
-  if (nasaId?.trim()) {
-    return `https://images.nasa.gov/details-${encodeURIComponent(nasaId)}.html`;
-  }
-
-  return `https://images.nasa.gov/search?q=${encodeURIComponent(title || "space")}`;
 }
 
 function toYouTubeEmbedUrl(url: string) {
@@ -788,8 +779,6 @@ function MissionResearchGalleryModal({
 export default function App() {
   const isMobile = useIsMobile();
   const { speak, stop } = useSpeech();
-const soundPlayerRef = useRef<HTMLAudioElement | null>(null);
-const soundCacheRef = useRef<Record<string, HTMLAudioElement>>({});
 
   const [screen, setScreen] = useState<Screen>("welcome");
   const [panel, setPanel] = useState<Panel>(null);
@@ -1046,14 +1035,13 @@ useEffect(() => {
         const res = await fetch("https://images-api.nasa.gov/search?q=astronomy&media_type=image");
         const data = await res.json();
 
-        const items = (data?.collection?.items || []).slice(0, 24).map((item: any, index: number) => ({
+        const items = (data?.collection?.items || []).slice(0, 6).map((item: any, index: number) => ({
           id: item?.data?.[0]?.nasa_id || `feed-${index}`,
           title: item?.data?.[0]?.title || "NASA Item",
           description: item?.data?.[0]?.description || "Astronomy content available.",
           date: item?.data?.[0]?.date_created || "",
           image: item?.links?.[0]?.href,
           source: "NASA Image Library",
-          sourceLink: buildNasaDetailsLink(item?.data?.[0]?.nasa_id, item?.data?.[0]?.title),
         }));
 
         setResearchFeed(items);
@@ -1074,14 +1062,13 @@ useEffect(() => {
         const res = await fetch(`https://images-api.nasa.gov/search?q=${encodeURIComponent(searchTerm)}&media_type=image`);
         const data = await res.json();
 
-        const items = (data?.collection?.items || []).slice(0, 24).map((item: any, index: number) => ({
+        const items = (data?.collection?.items || []).slice(0, 6).map((item: any, index: number) => ({
           id: item?.data?.[0]?.nasa_id || `nasa-${index}`,
           title: item?.data?.[0]?.title || "Untitled",
           description: item?.data?.[0]?.description || "No description available.",
           date: item?.data?.[0]?.date_created || "",
           image: item?.links?.[0]?.href,
           source: "NASA Image Library",
-          sourceLink: buildNasaDetailsLink(item?.data?.[0]?.nasa_id, item?.data?.[0]?.title),
         }));
 
         setSearchResults(items);
@@ -1171,32 +1158,6 @@ useEffect(() => {
   useEffect(() => {
     setObservationIndex(0);
   }, [observationCategory, observationMode]);
-
-  useEffect(() => {
-    const soundMap = [
-      "/sounds/deep-space-void.mp3",
-      "/sounds/cosmic-horror.mp3",
-      "/sounds/black-hole.mp3",
-      "/sounds/radio-scream.mp3",
-      "/sounds/dark-pulse.mp3",
-    ];
-
-    soundMap.forEach((src) => {
-      if (!soundCacheRef.current[src]) {
-        const audio = new Audio(src);
-        audio.preload = "auto";
-        audio.volume = 0.9;
-        soundCacheRef.current[src] = audio;
-      }
-    });
-
-    return () => {
-      Object.values(soundCacheRef.current).forEach((audio) => {
-        audio.pause();
-        audio.currentTime = 0;
-      });
-    };
-  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -1473,41 +1434,23 @@ const logoutAll = () => {
   };
 
   const playSpaceSound = (name: string) => {
-  const map: Record<string, string> = {
-    void: "/sounds/deep-space-void.mp3",
-    horror: "/sounds/cosmic-horror.mp3",
-    hole: "/sounds/black-hole.mp3",
-    radio: "/sounds/radio-scream.mp3",
-    pulse: "/sounds/dark-pulse.mp3",
-  };
+    const map: Record<string, string> = {
+      void: "/sounds/deep-space-void.mp3",
+      horror: "/sounds/cosmic-horror.mp3",
+      hole: "/sounds/black-hole.mp3",
+      radio: "/sounds/radio-scream.mp3",
+      pulse: "/sounds/dark-pulse.mp3",
+    };
 
-  const src = map[name];
-  if (!src) return;
+    const src = map[name];
+    if (!src) return;
 
-  try {
-    if (!soundCacheRef.current[src]) {
-      const audio = new Audio(src);
-      audio.preload = "auto";
-      audio.volume = 0.9;
-      soundCacheRef.current[src] = audio;
-    }
-
-    if (soundPlayerRef.current && soundPlayerRef.current !== soundCacheRef.current[src]) {
-      soundPlayerRef.current.pause();
-      soundPlayerRef.current.currentTime = 0;
-    }
-
-    const audio = soundCacheRef.current[src];
-    soundPlayerRef.current = audio;
-    audio.currentTime = 0;
-
+    const audio = new Audio(src);
+    audio.volume = 1;
     audio.play().catch(() => {
       speakInfo("Add the sound files inside public slash sounds folder to play them.");
     });
-  } catch {
-    speakInfo("Space sound could not be played.");
-  }
-};
+  };
 
   const youtubeEmbedUrl = toYouTubeEmbedUrl(creatorVideo.youtubeUrl);
 
@@ -2656,16 +2599,6 @@ const logoutAll = () => {
                     <h4 style={{ margin: 0, fontSize: 18 }}>{item.title}</h4>
                     <p style={{ ...styles.panelText, marginTop: 10 }}>{item.description}</p>
                     <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{safeDateLabel(item.date)}</div>
-                    <div style={{ marginTop: 14 }}>
-                      <a
-                        href={item.sourceLink || `https://images.nasa.gov/search?q=${encodeURIComponent(item.title)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={styles.linkBtn}
-                      >
-                        More About It
-                      </a>
-                    </div>
                   </div>
                 </div>
               ))}
@@ -2688,16 +2621,6 @@ const logoutAll = () => {
                     <h4 style={{ margin: 0, fontSize: 18 }}>{item.title}</h4>
                     <p style={{ ...styles.panelText, marginTop: 10 }}>{item.description}</p>
                     <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{item.source}</div>
-                    <div style={{ marginTop: 14 }}>
-                      <a
-                        href={item.sourceLink || `https://images.nasa.gov/search?q=${encodeURIComponent(item.title)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={styles.linkBtn}
-                      >
-                        More About It
-                      </a>
-                    </div>
                   </div>
                 </div>
               ))}
@@ -3682,16 +3605,12 @@ const styles: Record<string, React.CSSProperties> = {
   searchGrid: {
     display: "grid",
     gap: 16,
-    alignItems: "stretch",
   },
   searchCard: {
     overflow: "hidden",
     borderRadius: 22,
     background: "rgba(255,255,255,0.05)",
     border: "1px solid rgba(255,255,255,0.08)",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
   },
   searchImage: {
     width: "100%",
@@ -3965,7 +3884,6 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#000",
   },
 };
-
 
 
 
