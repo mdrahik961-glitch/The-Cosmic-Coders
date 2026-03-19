@@ -128,6 +128,7 @@ type SearchItem = {
   date: string;
   image?: string;
   source?: string;
+  sourceLink?: string;
 };
 
 type ObservationItem = {
@@ -822,8 +823,7 @@ export default function App() {
   const [commentDraft, setCommentDraft] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
   const [missionResearchOpen, setMissionResearchOpen] = useState<MissionType | null>(null);
-const [showUniverseEmbed, setShowUniverseEmbed] = useState(false);
-const universeFrameRef = useRef<HTMLDivElement | null>(null);
+  const [showUniverseEmbed, setShowUniverseEmbed] = useState(false);
 
   const [creatorVideo, setCreatorVideo] = useLocalStorageState("cosmic-creator-video", {
     title: "Mission Brief Video",
@@ -1035,13 +1035,16 @@ useEffect(() => {
         const res = await fetch("https://images-api.nasa.gov/search?q=astronomy&media_type=image");
         const data = await res.json();
 
-        const items = (data?.collection?.items || []).slice(0, 6).map((item: any, index: number) => ({
+        const items = (data?.collection?.items || []).slice(0, 24).map((item: any, index: number) => ({
           id: item?.data?.[0]?.nasa_id || `feed-${index}`,
           title: item?.data?.[0]?.title || "NASA Item",
           description: item?.data?.[0]?.description || "Astronomy content available.",
           date: item?.data?.[0]?.date_created || "",
           image: item?.links?.[0]?.href,
           source: "NASA Image Library",
+          sourceLink: item?.data?.[0]?.nasa_id
+            ? `https://images.nasa.gov/details/${item.data[0].nasa_id}`
+            : item?.href || "",
         }));
 
         setResearchFeed(items);
@@ -1062,13 +1065,16 @@ useEffect(() => {
         const res = await fetch(`https://images-api.nasa.gov/search?q=${encodeURIComponent(searchTerm)}&media_type=image`);
         const data = await res.json();
 
-        const items = (data?.collection?.items || []).slice(0, 6).map((item: any, index: number) => ({
+        const items = (data?.collection?.items || []).slice(0, 24).map((item: any, index: number) => ({
           id: item?.data?.[0]?.nasa_id || `nasa-${index}`,
           title: item?.data?.[0]?.title || "Untitled",
           description: item?.data?.[0]?.description || "No description available.",
           date: item?.data?.[0]?.date_created || "",
           image: item?.links?.[0]?.href,
           source: "NASA Image Library",
+          sourceLink: item?.data?.[0]?.nasa_id
+            ? `https://images.nasa.gov/details/${item.data[0].nasa_id}`
+            : item?.href || "",
         }));
 
         setSearchResults(items);
@@ -1453,22 +1459,6 @@ const logoutAll = () => {
   };
 
   const youtubeEmbedUrl = toYouTubeEmbedUrl(creatorVideo.youtubeUrl);
-
-const openUniverseFullscreen = async () => {
-  try {
-    if (!universeFrameRef.current) return;
-
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-      return;
-    }
-
-    await universeFrameRef.current.requestFullscreen();
-  } catch (error) {
-    console.error("Fullscreen failed:", error);
-    speakInfo("Fullscreen could not be opened.");
-  }
-};
 
   return (
     <div style={styles.page}>
@@ -2614,6 +2604,19 @@ const openUniverseFullscreen = async () => {
                     <h4 style={{ margin: 0, fontSize: 18 }}>{item.title}</h4>
                     <p style={{ ...styles.panelText, marginTop: 10 }}>{item.description}</p>
                     <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{safeDateLabel(item.date)}</div>
+
+                    {item.sourceLink && (
+                      <div style={{ marginTop: 14 }}>
+                        <a
+                          href={item.sourceLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={styles.linkBtn}
+                        >
+                          More About It
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -2636,6 +2639,19 @@ const openUniverseFullscreen = async () => {
                     <h4 style={{ margin: 0, fontSize: 18 }}>{item.title}</h4>
                     <p style={{ ...styles.panelText, marginTop: 10 }}>{item.description}</p>
                     <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{item.source}</div>
+
+                    {item.sourceLink && (
+                      <div style={{ marginTop: 14 }}>
+                        <a
+                          href={item.sourceLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={styles.linkBtn}
+                        >
+                          More About It
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -2683,27 +2699,23 @@ const openUniverseFullscreen = async () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
 
-            <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ marginTop: 20 }}>
               <button
-                style={styles.primaryBtn}
-                onClick={() => setShowUniverseEmbed(true)}
-              >
-                Open NASA 3D Universe Here
-              </button>
-
-              <a
-                href="https://eyes.nasa.gov/apps/orrery/"
-                target="_blank"
-                rel="noreferrer"
-                style={styles.linkBtn}
-              >
-                Open in New Tab
-              </a>
+  type="button"
+  style={{ ...styles.linkBtn, border: "none", cursor: "pointer" }}
+  onClick={() => {
+    console.log("NASA 3D button clicked");
+    setUniverseLoading(true);
+    setShowUniverseEmbed(true);
+  }}
+>
+  Open NASA 3D Universe
+</button>
             </div>
 
             <p style={{ ...styles.panelText, marginTop: 16 }}>
               Search idea: {searchTerm || "spacecraft"}.
-              You can open NASA 3D Universe inside this app, close it with X, or switch to fullscreen.
+              Use the NASA 3D Universe link above to explore solar system objects, missions, and moving bodies.
             </p>
           </div>
 
@@ -2747,34 +2759,70 @@ const openUniverseFullscreen = async () => {
 
       {showUniverseEmbed && (
         <div style={styles.universeOverlay}>
-          <div style={styles.universeTopBar}>
-            <div style={styles.universeTitle}>NASA 3D Universe</div>
+          <button
+            style={styles.universeCloseBtn}
+            onClick={() => setShowUniverseEmbed(false)}
+            title="Close"
+          >
+            ?
+          </button>
 
-            <div style={styles.universeActions}><button
-                style={styles.universeCloseBtn}
-                onClick={() => setShowUniverseEmbed(false)}
-                title="Close">X</button>
-            </div>
-          </div>
+          <iframe
+            src="https://eyes.nasa.gov/apps/orrery/"
+            title="NASA 3D Universe"
+            style={styles.universeFrame}
+            allowFullScreen
+          />
 
-          <div ref={universeFrameRef} style={styles.universeFrameWrap}>
-            <iframe
-              src="https://eyes.nasa.gov/apps/orrery/"
-              title="NASA 3D Universe"
-              style={styles.universeFrame}
-              allow="fullscreen; xr-spatial-tracking"
-              referrerPolicy="strict-origin-when-cross-origin"
-            />
+          <div style={styles.universeFallbackBar}>
+            If the NASA page does not load here, your browser may be blocking embedded content.
+            <a
+              href="https://eyes.nasa.gov/apps/orrery/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ ...styles.linkBtn, marginLeft: 12 }}
+            >
+              Open in New Tab
+            </a>
           </div>
         </div>
       )}
-
       <MissionResearchGalleryModal
         type="voyager"
         open={missionResearchOpen === "voyager"}
         onClose={() => setMissionResearchOpen(null)}
       />
 
+      {showUniverseEmbed && (
+        <div style={styles.universeOverlay}>
+          <button
+            style={styles.universeCloseBtn}
+            onClick={() => setShowUniverseEmbed(false)}
+            title="Close"
+          >
+            ?
+          </button>
+
+          <iframe
+            src="https://eyes.nasa.gov/apps/orrery/"
+            title="NASA 3D Universe"
+            style={styles.universeFrame}
+            allowFullScreen
+          />
+
+          <div style={styles.universeFallbackBar}>
+            If the NASA page does not load here, your browser may be blocking embedded content.
+            <a
+              href="https://eyes.nasa.gov/apps/orrery/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ ...styles.linkBtn, marginLeft: 12 }}
+            >
+              Open in New Tab
+            </a>
+          </div>
+        </div>
+      )}
       <MissionResearchGalleryModal
         type="hubble"
         open={missionResearchOpen === "hubble"}
@@ -3837,60 +3885,13 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 10,
     marginTop: 12,
-  },
-  universeOverlay: {
+  },  universeOverlay: {
     position: "fixed",
     inset: 0,
-    zIndex: 120,
+    zIndex: 999,
     background: "rgba(0,0,0,0.92)",
     display: "flex",
     flexDirection: "column",
-    padding: 16,
-  },
-  universeTopBar: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    padding: "8px 0 14px",
-  },
-  universeTitle: {
-    fontSize: 20,
-    fontWeight: 800,
-    color: "#fff",
-  },
-  universeActions: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-  },
-  universeActionBtn: {
-    border: "1px solid rgba(255,255,255,0.16)",
-    background: "rgba(255,255,255,0.08)",
-    color: "#fff",
-    padding: "10px 16px",
-    borderRadius: 999,
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-  universeCloseBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    border: "1px solid rgba(255,255,255,0.16)",
-    background: "rgba(255,80,80,0.16)",
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-  universeFrameWrap: {
-    flex: 1,
-    minHeight: 0,
-    borderRadius: 20,
-    overflow: "hidden",
-    border: "1px solid rgba(255,255,255,0.1)",
-    background: "#000",
   },
   universeFrame: {
     width: "100%",
@@ -3898,7 +3899,41 @@ const styles: Record<string, React.CSSProperties> = {
     border: "none",
     background: "#000",
   },
-};
+  universeCloseBtn: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    zIndex: 1000,
+    width: 54,
+    height: 54,
+    borderRadius: "50%",
+    border: "1px solid rgba(255,255,255,0.2)",
+    background: "rgba(255,255,255,0.08)",
+    color: "#fff",
+    fontSize: 28,
+    cursor: "pointer",
+    backdropFilter: "blur(8px)",
+  },
+  universeFallbackBar: {
+    position: "absolute",
+    left: 16,
+    bottom: 16,
+    zIndex: 1000,
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 10,
+    padding: "12px 16px",
+    borderRadius: 16,
+    background: "rgba(0,0,0,0.55)",
+    color: "#fff",
+    border: "1px solid rgba(255,255,255,0.12)",
+  },};
+
+
+
+
+
 
 
 

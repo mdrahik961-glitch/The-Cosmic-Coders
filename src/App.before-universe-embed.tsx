@@ -822,8 +822,6 @@ export default function App() {
   const [commentDraft, setCommentDraft] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
   const [missionResearchOpen, setMissionResearchOpen] = useState<MissionType | null>(null);
-const [showUniverseEmbed, setShowUniverseEmbed] = useState(false);
-const universeFrameRef = useRef<HTMLDivElement | null>(null);
 
   const [creatorVideo, setCreatorVideo] = useLocalStorageState("cosmic-creator-video", {
     title: "Mission Brief Video",
@@ -1453,22 +1451,6 @@ const logoutAll = () => {
   };
 
   const youtubeEmbedUrl = toYouTubeEmbedUrl(creatorVideo.youtubeUrl);
-
-const openUniverseFullscreen = async () => {
-  try {
-    if (!universeFrameRef.current) return;
-
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-      return;
-    }
-
-    await universeFrameRef.current.requestFullscreen();
-  } catch (error) {
-    console.error("Fullscreen failed:", error);
-    speakInfo("Fullscreen could not be opened.");
-  }
-};
 
   return (
     <div style={styles.page}>
@@ -2683,27 +2665,20 @@ const openUniverseFullscreen = async () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
 
-            <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <button
-                style={styles.primaryBtn}
-                onClick={() => setShowUniverseEmbed(true)}
-              >
-                Open NASA 3D Universe Here
-              </button>
-
+            <div style={{ marginTop: 20 }}>
               <a
                 href="https://eyes.nasa.gov/apps/orrery/"
                 target="_blank"
                 rel="noreferrer"
                 style={styles.linkBtn}
               >
-                Open in New Tab
+                Open NASA 3D Universe
               </a>
             </div>
 
             <p style={{ ...styles.panelText, marginTop: 16 }}>
               Search idea: {searchTerm || "spacecraft"}.
-              You can open NASA 3D Universe inside this app, close it with X, or switch to fullscreen.
+              Use the NASA 3D Universe link above to explore solar system objects, missions, and moving bodies.
             </p>
           </div>
 
@@ -2744,30 +2719,6 @@ const openUniverseFullscreen = async () => {
           </div>
         </div>
       </Modal>
-
-      {showUniverseEmbed && (
-        <div style={styles.universeOverlay}>
-          <div style={styles.universeTopBar}>
-            <div style={styles.universeTitle}>NASA 3D Universe</div>
-
-            <div style={styles.universeActions}><button
-                style={styles.universeCloseBtn}
-                onClick={() => setShowUniverseEmbed(false)}
-                title="Close">X</button>
-            </div>
-          </div>
-
-          <div ref={universeFrameRef} style={styles.universeFrameWrap}>
-            <iframe
-              src="https://eyes.nasa.gov/apps/orrery/"
-              title="NASA 3D Universe"
-              style={styles.universeFrame}
-              allow="fullscreen; xr-spatial-tracking"
-              referrerPolicy="strict-origin-when-cross-origin"
-            />
-          </div>
-        </div>
-      )}
 
       <MissionResearchGalleryModal
         type="voyager"
@@ -3838,69 +3789,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 10,
     marginTop: 12,
   },
-  universeOverlay: {
-    position: "fixed",
-    inset: 0,
-    zIndex: 120,
-    background: "rgba(0,0,0,0.92)",
-    display: "flex",
-    flexDirection: "column",
-    padding: 16,
-  },
-  universeTopBar: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    padding: "8px 0 14px",
-  },
-  universeTitle: {
-    fontSize: 20,
-    fontWeight: 800,
-    color: "#fff",
-  },
-  universeActions: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-  },
-  universeActionBtn: {
-    border: "1px solid rgba(255,255,255,0.16)",
-    background: "rgba(255,255,255,0.08)",
-    color: "#fff",
-    padding: "10px 16px",
-    borderRadius: 999,
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-  universeCloseBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    border: "1px solid rgba(255,255,255,0.16)",
-    background: "rgba(255,80,80,0.16)",
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-  universeFrameWrap: {
-    flex: 1,
-    minHeight: 0,
-    borderRadius: 20,
-    overflow: "hidden",
-    border: "1px solid rgba(255,255,255,0.1)",
-    background: "#000",
-  },
-  universeFrame: {
-    width: "100%",
-    height: "100%",
-    border: "none",
-    background: "#000",
-  },
 };
-
-
 
 
 
