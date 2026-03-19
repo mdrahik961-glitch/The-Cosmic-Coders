@@ -836,7 +836,7 @@ const universeFrameRef = useRef<HTMLDivElement | null>(null);
   const [comments, setComments] = useState<CommentItem[]>([]);
 const [visitorAccounts, setVisitorAccounts] = useState<VisitorAccount[]>([]);
 const [visitorLogs, setVisitorLogs] = useState<VisitorLogItem[]>([]);
-const [activeVisitorId, setActiveVisitorId] = useLocalStorageState<string | null>("cosmic-active-visitor-id", null);
+const [, setActiveVisitorId] = useLocalStorageState<string | null>("cosmic-active-visitor-id", null);
 
   const [creatorAccount, setCreatorAccount] = useState<CreatorAccount>({
   email: ADMIN_EMAIL,
@@ -1454,21 +1454,6 @@ const logoutAll = () => {
 
   const youtubeEmbedUrl = toYouTubeEmbedUrl(creatorVideo.youtubeUrl);
 
-const openUniverseFullscreen = async () => {
-  try {
-    if (!universeFrameRef.current) return;
-
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-      return;
-    }
-
-    await universeFrameRef.current.requestFullscreen();
-  } catch (error) {
-    console.error("Fullscreen failed:", error);
-    speakInfo("Fullscreen could not be opened.");
-  }
-};
 
   return (
     <div style={styles.page}>
@@ -3899,6 +3884,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#000",
   },
 };
+
 
 
 
